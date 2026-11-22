@@ -637,6 +637,7 @@ const S={db:null,user:null,assets:null,uid:null,me:null,isAdmin:false,viewAs:nul
  schedule:{},plan:{},bonus:{},goals:{},paylog:{},config:{goal:35000000,rate:470,startDay:5},myReq:null,loaded:new Set(),
  tab:null,f:{orders:'active',crm:'open',inc:'open',courier:null,stockQ:'',ordersQ:'',crmQ:'',crmMine:false,money:null},
  sheet:null,incMsgs:[],incUnsub:null,calc:{kitId:'begemot',ups:[]}};
+try{const mr=localStorage.getItem('teb.mr');if(mr)S.f.mr=JSON.parse(mr)}catch(e){}
 try{const t=localStorage.getItem('teb.tab');if(t)S.tab=t;const v=localStorage.getItem('teb.viewAs');if(v)S.viewAs=v}catch(e){}
 
 const member=()=>S.team.find(m=>m.userId&&m.userId===S.uid)||null;
@@ -938,7 +939,7 @@ VIEW.dash=()=>{
 };
 function netChart(P){
   const rows=P.rows;const t=todayKey();
-  const W=Math.max(420,rows.length*22+50),Hh=200,top=14,bot=26,left=44,right=8;
+  const W=Math.max(DESK.matches?860:420,rows.length*22+70),Hh=DESK.matches?240:200,top=14,bot=26,left=66,right=8;
   const vals=rows.map(r=>r.k<=t?r.net:0);
   const maxV=Math.max(P.need,...vals,1),minV=Math.min(0,...vals);
   const y=v=>top+(maxV-v)/(maxV-minV)*(Hh-top-bot);
@@ -1641,22 +1642,41 @@ VIEW.stock=()=>{
   <div class="list">${S.upgrades.length?S.upgrades.map(u=>{const uc=costOf('up_'+u.id);return `<button class="row" ${adm?`data-act="editUp" data-id="${esc(u.id)}"`:'style="cursor:default"'}><div class="main"><div class="t1">${esc(u.name)}<span class="pill">${esc(u.group||'Прочее')}</span></div><div class="t2">${u.price==null?'<span style="color:var(--warn)">доплата не задана</span>':`+${nfmt(u.price)} наличными · Kaspi +${nfmt(up1k(u.price/.85))}`}</div></div>${adm&&uc!=null?`<div class="side num">себест. +${nfmt(uc)}</div>`:''}</button>`}).join(''):'<div class="empty">Апгрейдов нет.</div>'}</div>`;
 };
 
+function moneyRange(){const t=todayKey();const sd=+S.config.startDay||5;const R=S.f.mr||{p:'month'};const cp=periodOf(t,sd);
+  const map={today:[t,t,'Сегодня'],yday:[addDays(t,-1),addDays(t,-1),'Вчера'],d7:[addDays(t,-6),t,'7 дней'],d30:[addDays(t,-29),t,'30 дней'],
+    month:[cp.s,cp.e,'Этот месяц'],prev:[periodOf(addDays(cp.s,-1),sd).s,periodOf(addDays(cp.s,-1),sd).e,'Прошлый месяц']};
+  if(R.p==='custom'&&R.s&&R.e)return{p:'custom',s:R.s<=R.e?R.s:R.e,e:R.s<=R.e?R.e:R.s,t:'Свой период'};
+  const m=map[R.p]||map.month;return{p:R.p in map?R.p:'month',s:m[0],e:m[1],t:m[2]}}
+function rangeSum(s,e){const t=todayKey();const keys=keysBetween(s,e);const rows=keys.map(dayStats);const past=rows.filter(r=>r.k<=t);
+  const sum=f=>past.reduce((a,r)=>a+r[f],0);const o={rows,keys,days:past.length,net:sum('net'),margin:sum('margin'),ad:sum('ad'),adUsd:sum('adUsd'),msgs:sum('msgs'),other:sum('other'),orders:sum('orders')};
+  o.avg=o.days?o.net/o.days:0;return o}
+const delta=(a,b)=>{if(!b)return'';const d=(a-b)/Math.abs(b)*100;if(!isFinite(d)||Math.abs(d)<0.5)return'<span class="muted">= как раньше</span>';return `<span style="color:var(--${d>0?'good':'bad'})">${d>0?'▲':'▼'} ${Math.abs(d).toFixed(0)}%</span>`};
+const deltaInv=(a,b)=>{if(!b)return'';const d=(a-b)/Math.abs(b)*100;if(!isFinite(d)||Math.abs(d)<0.5)return'';return `<span style="color:var(--${d<0?'good':'bad'})">${d>0?'▲':'▼'} ${Math.abs(d).toFixed(0)}%</span>`};
 VIEW.money=()=>{
-  const t=todayKey();const sd=+S.config.startDay||5;
-  const keys=Object.keys(S.days).concat(S.orders.map(o=>dayKey(o.createdAt||Date.now()))).concat([t]);
-  const periods=[...new Set(keys.map(k=>periodOf(k,sd).s))].sort().reverse();
-  const cur=S.f.money&&periods.includes(S.f.money)?S.f.money:periodOf(t,sd).s;
-  const P=periodSum(cur);
-  const rows=P.rows.filter(r=>r.k<=t);
-  const exps=S.expenses.filter(e=>e.date>=P.p.s&&e.date<=P.p.e);
-  const cpl=P.msgs?P.adUsd/P.msgs:0;
+  const t=todayKey();const sd=+S.config.startDay||5;const R=moneyRange();
+  const C=rangeSum(R.s,R.e);const len=keysBetween(R.s,R.e).length;const pe=addDays(R.s,-1);const ps=addDays(R.s,-len);const PR=rangeSum(ps,pe);
+  const isMonth=R.p==='month';const MP=periodSum(t);
+  const P={rows:C.rows,need:isMonth?MP.need:0,p:{s:R.s,e:R.e}};
+  const rows=C.rows.filter(r=>r.k<=t);
+  const exps=S.expenses.filter(e=>e.date>=R.s&&e.date<=R.e);
+  const cpl=C.msgs?C.adUsd/C.msgs:0,pcpl=PR.msgs?PR.adUsd/PR.msgs:0;const conv=C.msgs?C.orders/C.msgs*100:0;
+  const presets=[['today','Сегодня'],['yday','Вчера'],['d7','7 дней'],['d30','30 дней'],['month','Этот месяц'],['prev','Прошлый месяц'],['custom','Свой период']];
+  const cmpName={today:'вчера',yday:'позавчера',d7:'пред. 7 дней',d30:'пред. 30 дней',month:'прошлый месяц',prev:'позапрошлый месяц',custom:'пред. такой же период'}[R.p];
+  const kpi=(l,v,sub,d)=>`<div class="kpi"><span class="eyebrow">${l}</span><span class="v">${v}</span><span class="s">${sub}${d?` · ${d}`:''}</span></div>`;
   return `<div class="section-h"><h2>Финансы</h2><span class="spacer"></span><button class="btn sm" data-act="cfg">Цель и курс</button></div>
-  <div class="chips">${periods.map(s=>{const p=periodOf(s,sd);return `<button class="chip" data-act="fMoney" data-v="${s}" aria-pressed="${s===cur}">${fmtDay(p.s)}–${fmtDay(p.e)}</button>`}).join('')}</div>
+  <div class="chips">${presets.map(([v,l])=>`<button class="chip" data-act="mRange" data-v="${v}" aria-pressed="${R.p===v}">${l}</button>`).join('')}</div>
+  ${R.p==='custom'?`<div class="grid2" style="max-width:520px"><div class="field"><label for="mr-s">С</label><input class="inp" type="date" id="mr-s" data-mr="s" value="${esc(R.s)}"></div><div class="field"><label for="mr-e">По</label><input class="inp" type="date" id="mr-e" data-mr="e" value="${esc(R.e)}"></div></div>`:''}
+  <div class="muted small">${R.s===R.e?fmtDay(R.s):fmtDay(R.s)+' — '+fmtDay(R.e)} · сравнение: ${cmpName} (${ps===pe?fmtDay(ps):fmtDay(ps)+' — '+fmtDay(pe)})</div>
+  ${isMonth?`<div class="panel" style="display:flex;flex-direction:column;gap:8px"><div class="section-h"><h2>Цель месяца</h2><span class="spacer"></span><span class="num">${mln(MP.net)} / ${mln(MP.goal)}</span></div><div class="bar"><i style="width:${MP.goal?Math.min(100,MP.net/MP.goal*100):0}%"></i></div><div class="small muted">Осталось ${mln(Math.max(0,MP.goal-MP.net))} · нужно ${mln(MP.need)} в день · ${MP.left} дн.</div></div>`:''}
   <div class="kpis">
-   <div class="kpi"><span class="eyebrow">Чистыми</span><span class="v">${mln(P.net)}</span><span class="s">цель ${mln(P.goal)}</span></div>
-   <div class="kpi"><span class="eyebrow">Маржа</span><span class="v">${mln(P.margin)}</span><span class="s">${P.orders} заказов</span></div>
-   <div class="kpi"><span class="eyebrow">Реклама</span><span class="v">${mln(P.ad)}</span><span class="s">${usd(P.adUsd)} · ${usd(cpl)}/сообщ.</span></div>
-   <div class="kpi"><span class="eyebrow">Прочие расходы</span><span class="v">${mln(P.other)}</span><span class="s">ЗП, Kaspi, аренда</span></div>
+   ${kpi('Чистыми',mln(C.net),'за период',delta(C.net,PR.net))}
+   ${kpi('Маржа',mln(C.margin),`${C.orders} заказов`,delta(C.margin,PR.margin))}
+   ${kpi('Реклама',mln(C.ad),`${usd(C.adUsd)}`,deltaInv(C.ad,PR.ad))}
+   ${kpi('Прочие расходы',mln(C.other),'ЗП, Kaspi, аренда',deltaInv(C.other,PR.other))}
+   ${kpi('Продаж',String(C.orders),`${C.days>1?(C.orders/C.days).toFixed(1)+' в день':'за день'}`,delta(C.orders,PR.orders))}
+   ${kpi('Сообщений',String(C.msgs),`${usd(cpl)} за сообщение`,deltaInv(cpl,pcpl))}
+   ${kpi('Конверсия',conv?conv.toFixed(1)+'%':'—','сообщение → продажа',delta(conv,PR.msgs?PR.orders/PR.msgs*100:0))}
+   ${kpi('Средний день',mln(C.avg),'чистыми',delta(C.avg,PR.avg))}
   </div>
   <div class="panel chart">${netChart(P)}</div>
   <div class="section-h"><h2>По дням</h2><span class="spacer"></span><button class="btn sm" data-act="editDay" data-k="${t}">${icon('plus')}День</button></div>
@@ -2174,6 +2194,7 @@ ACT.crmMine=()=>{S.f.crmMine=!S.f.crmMine;paint()};
 ACT.fInc=d=>{S.f.inc=d.v;paint()};
 ACT.fCour=d=>{S.f.courier=d.v||null;paint()};
 ACT.fMoney=d=>{S.f.money=d.v;paint()};
+ACT.mRange=d=>{const R=moneyRange();S.f.mr=d.v==='custom'?{p:'custom',s:R.s,e:R.e}:{p:d.v};try{localStorage.setItem('teb.mr',JSON.stringify(S.f.mr))}catch(e){}paint()};
 ACT.openOrder=d=>openSheet('order',d.id,true);
 ACT.newOrder=()=>openSheet('orderForm',null);
 ACT.editOrder=d=>openSheet('orderForm',{id:d.id});
@@ -2421,6 +2442,7 @@ document.addEventListener('input',e=>{const cc=e.target.dataset?.cc;if(cc){S.cal
   const mx=e.target.dataset?.mix;if(mx==='cash'){S.calc.mixCash=num(e.target.value)||0;clearTimeout(inT);inT=setTimeout(paint,250);return}
   const of=e.target.closest&&e.target.closest('form[data-form="order"]');if(of){recalcOrderForm(of,e.target);return}const k=e.target.dataset?.input;if(!k)return;S.f[k]=e.target.value;clearTimeout(inT);inT=setTimeout(paint,180)});
 document.addEventListener('change',e=>{
+  const mr=e.target.dataset?.mr;if(mr){S.f.mr={...(S.f.mr||{p:'custom'}),p:'custom',[mr]:e.target.value};try{localStorage.setItem('teb.mr',JSON.stringify(S.f.mr))}catch(x){}setTimeout(schedulePaint,0);return}
   const pl=e.target.dataset?.pl;if(pl){const m=e.target.dataset.m,k=e.target.dataset.k;const days={...(S.paylog[m]||{})};const cur={...(days[k]||{})};if(pl==='w')cur.w=e.target.checked?1:0;else cur.sales=num(e.target.value)||0;days[k]=cur;S.paylog[m]=days;put(doc('paylog/'+m),{days}).then(ok=>ok&&toast('Сохранено'));setTimeout(schedulePaint,0);return}
   if(e.target.dataset?.mix==='via'){S.calc.mixVia=e.target.value;paint();return}
   const grp=e.target.dataset?.group;
