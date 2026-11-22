@@ -1457,7 +1457,7 @@ VIEW.mchat=()=>{
 };
 
 /* ---------- salary ---------- */
-const PAY_BASE=4000,PAY_PLAN=8000,PAY_SALE=2000;
+const PAY_BASE_OLD=4000,PAY_PLAN=8000,PAY_SALE=2000;const noBaseFrom=()=>S.config.noBaseFrom||'2026-11-23';const baseOf=k=>k>=noBaseFrom()?0:PAY_BASE_OLD;const PAY_BASE=0;
 const isClub=o=>/клуб/i.test([o.product,o.num,o.client].join(' '));
 const soldBy=o=>o.soldBy||o.createdBy;
 const portalSales=k=>S.orders.filter(o=>o.stage!=='cancelled'&&!isClub(o)&&dayKey(o.createdAt)===k);
@@ -1467,7 +1467,7 @@ function worked(mid,k){const wd=(new Date(k+'T12:00:00Z').getUTCDay()+6)%7;if((S
   return portalSales(k).some(o=>soldBy(o)===mid)||S.notes.some(n=>n.createdBy===mid&&dayKey(n.createdAt||0)===k)}
 const payStart=()=>S.config.payStart||'2026-11-16';
 function payDay(mid,k){const L=(S.paylog[mid]||{})[k]||{};const team=teamSales(k),plan=planOf(k);let w=L.w!=null?!!L.w:worked(mid,k);if(k<payStart())w=false;const mine=w?team:0;
-  const met=plan>0&&team>=plan;const base=w?(met?PAY_PLAN:PAY_BASE):0;return{k,team,plan,mine,w,met,base,extra:mine*PAY_SALE,total:base+mine*PAY_SALE}}
+  const met=plan>0&&team>=plan;const base=w?(met?PAY_PLAN:baseOf(k)):0;return{k,team,plan,mine,w,met,base,extra:mine*PAY_SALE,total:base+mine*PAY_SALE}}
 
 function goalForm(mid){const g=S.goals[mid]||{};const quick=[300000,500000,700000,1000000];
   return `<form class="panel form" data-form="goal" data-id="${esc(mid)}"><div class="section-h"><h2>🎯 Моя цель на месяц</h2></div>
@@ -1550,7 +1550,7 @@ VIEW.pay=()=>{
   <div class="panel" style="display:flex;flex-direction:column;gap:10px">
    <div class="section-h"><h2>Сегодня</h2><span class="spacer"></span><span class="pill ${td.met?'good':'warn'}">${td.met?'план выполнен 🔥':'план ещё не закрыт'}</span></div>
    <div class="kpis two">
-    <div class="kpi"><span class="eyebrow">Продажи команды</span><span class="v">${td.team} / ${td.plan||'—'}</span><span class="s">${td.met?'за выход уже 8 000':need?`ещё ${need} — и выход станет 8 000 вместо 4 000`:'план не задан'}</span></div>
+    <div class="kpi"><span class="eyebrow">Продажи команды</span><span class="v">${td.team} / ${td.plan||'—'}</span><span class="s">${td.met?'за выход уже 8 000':need?`ещё ${need} — и будет оклад 8 000, без плана оклада нет`:'план не задан'}</span></div>
     <div class="kpi"><span class="eyebrow">За продажи команды</span><span class="v">${td.mine} × 2 000</span><span class="s">+${nfmt(td.extra)} ₸ · каждая продажа команды +2 000</span></div>
    </div>
    <div class="bar"><i style="width:${td.plan?Math.min(100,td.team/td.plan*100):0}%;background:${td.met?'var(--good)':'var(--accent)'}"></i></div>
@@ -1566,7 +1566,7 @@ VIEW.pay=()=>{
   <div class="tbl"><table><thead><tr><th>Дата</th><th>План</th><th>Продажи команды</th><th>Выход</th><th>За продажи</th><th>Итого</th></tr></thead><tbody>
   ${days.slice().reverse().map(d=>`<tr><td>${fmtDay(d.k)}${d.k===t?' · сегодня':''}</td><td class="num">${d.plan||'—'}</td><td class="num ${d.met?'pos':''}">${d.team}${d.met?' ✓':''}</td><td class="num">${S.isAdmin?`<label class="check" style="padding:3px 8px;font-size:12px"><input type="checkbox" data-pl="w" data-m="${esc(mid)}" data-k="${d.k}" ${d.w?'checked':''}>${d.w?nfmt(d.base):'нет'}</label>`:(d.w?nfmt(d.base):'—')}</td><td class="num">${nfmt(d.extra)}</td><td class="num"><b>${nfmt(d.total)}</b></td></tr>`).join('')}
   </tbody></table></div>
-  <div class="muted small">Зарплата считается с ${fmtDay(payStart())} (первый день после стажировки). ${S.isAdmin?'Выходы можно поправить галочкой в таблице, продажи команды — в «Команде» → план по дням. ':''}Выход: 4 000, если в этот день команда выполнила план — 8 000. Плюс 2 000 за каждую продажу команды в этот день — неважно, кто продал. Клубы не считаются. Выход засчитывается по графику смен или по работе в портале.</div>
+  <div class="muted small">Зарплата считается с ${fmtDay(payStart())} (первый день после стажировки). ${S.isAdmin?'Выходы можно поправить галочкой в таблице, продажи команды — в «Команде» → план по дням. ':''}Оклад 8 000 — только если в этот день команда выполнила план; не выполнили — оклада нет (до ${fmtDay(noBaseFrom())} было 4 000). Плюс 2 000 за каждую продажу команды в этот день — неважно, кто продал. Клубы не считаются. Выход засчитывается по графику смен или по работе в портале.</div>
   </div><div class="stick">
   <div class="bonus ${won?'open':''}">
     <div class="eyebrow">${won?'Бонус открыт':'Секретный бонус месяца'}</div>
