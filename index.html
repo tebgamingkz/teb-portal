@@ -1330,7 +1330,7 @@ function bcard(o){const P=stageProgress(o);const st=o.stage==='queue'?'Ждёт 
    ${btrack(o,false)}
    <div class="bfoot"><span>${esc(o.city||'')}</span><span>на этапе ${ago(o.stageAt||o.createdAt)}</span></div></button>`}
 function buildBuilderView(){
-  const me=bMe();const mm=S.team.find(m=>m.id===me);const lead=isLead();
+  const me=bMe();const mm=S.team.find(m=>m.id===me);const lead=S.isAdmin?!!mm?.lead:isLead();
   if(!me)return `<div class="panel empty">${S.isAdmin?'Добавьте сборщиков в «Команде».':'Ваш аккаунт ещё не привязан к сотруднику — попросите администратора.'}</div>`;
   const t=todayKey();const P=periodOf(t,+S.config.startDay||5);
   const mine=S.orders.filter(o=>o.builderId===me&&WORK_ST.includes(o.stage)).sort((a,b)=>(b.urgent?1:0)-(a.urgent?1:0)||WORK_ST.indexOf(b.stage)-WORK_ST.indexOf(a.stage));
