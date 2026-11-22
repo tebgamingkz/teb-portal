@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signed() { return request.auth != null; }
+    function admin() { return signed() && request.auth.token.email_verified == true
+      && request.auth.token.email.lower() in ['face.tron@bk.ru', 'ttteb@mail.ru']; }
+    function member() { return signed() && exists(/databases/$(database)/documents/members/$(request.auth.uid)); }
+    function staff() { return admin() || member(); }
+
+    // Список команды виден всем вошедшим (чтобы выбрать себя в заявке)
+    match /team/{id} { allow read: if signed(); allow write: if admin(); }
+    // Кто допущен — пишет только админ
+    match /members/{uid} { allow read: if admin() || (signed() && request.auth.uid == uid); allow write: if admin(); }
+    // Заявка на доступ — каждый только свою
+    match /requests/{uid} {
+      allow read, delete: if admin() || (signed() && request.auth.uid == uid);
+      allow create, update: if admin() || (signed() && request.auth.uid == uid);
+    }
+    // Настройки, каталог, график, зарплаты: читают сотрудники, меняет админ
+    match /config/{id}   { allow read: if staff(); allow write: if admin(); }
+    match /schedule/{id} { allow read: if staff(); allow write: if admin(); }
+    match /kits/{id}     { allow read: if staff(); allow write: if admin(); }
+    match /upgrades/{id} { allow read: if staff(); allow write: if admin(); }
+    match /paylog/{id}   { allow read: if staff(); allow write: if admin(); }
+    // Деньги — только админ
+    match /costs/{id}    { allow read, write: if admin(); }
+    match /days/{id}     { allow read, write: if admin(); }
+    match /expenses/{id} { allow read, write: if admin(); }
+    match /margins/{id}  { allow read, write: if admin(); }
+    // Рабочие данные — все сотрудники
+    match /orders/{id}    { allow read, write: if staff(); }
+    match /notes/{id}     { allow read, write: if staff(); }
+    match /leads/{id}     { allow read, write: if staff(); }
+    match /stock/{id}     { allow read, write: if staff(); }
+    match /goals/{id}     { allow read, write: if staff(); }
+    match /chat/{id}      { allow read, write: if staff(); }
+    match /mchat/{id}     { allow read, write: if staff(); }
+    match /incidents/{id} { allow read, write: if staff();
+      match /msgs/{m}     { allow read, write: if staff(); } }
+  }
+}
