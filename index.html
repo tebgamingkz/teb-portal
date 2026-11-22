@@ -56,6 +56,8 @@ html:root[data-skin="lux"] .panel,html:root[data-skin="lux"] .kpi,html:root[data
 html:root[data-skin="lux"] .total,html:root[data-skin="lux"] .bhero{background:linear-gradient(135deg,#1A1D22 0%,#0B0C0E 55%,#2A2E34 100%);color:#F4F4F2;box-shadow:0 0 0 1px #3A3F46 inset,0 14px 30px -18px rgba(0,0,0,.6)}
 html:root[data-skin="lux"] .btn.primary{background:linear-gradient(180deg,#24272C,#0B0C0E);box-shadow:0 0 0 1px #3A3F46 inset}
 html:root[data-skin="lux"] .brand::after{content:"";display:inline-block;width:22px;height:2px;margin-left:8px;vertical-align:middle;background:linear-gradient(90deg,#8E959D,#E9ECEF,#8E959D);border-radius:2px}
+html:root[data-skin="lux"]:not([data-bg]){background:linear-gradient(color-mix(in srgb,var(--bg) 50%,transparent),color-mix(in srgb,var(--bg) 72%,transparent)),url("eshka.jpg") center 30%/cover fixed no-repeat,var(--bg)!important}
+html:root[data-skin="lux"]:not([data-bg]) body,html:root[data-skin="lux"]:not([data-bg]) #view,html:root[data-skin="lux"]:not([data-bg]) main{background:transparent!important}
 html:root[data-skin="pink"]{
   --bg:#FFF4F8; --surface:#FFFFFF; --surface2:#FDEAF1; --line:#F5D2DF; --fg:#2A1320; --muted:#8C6275;
   --accent:#E0337A; --accent-soft:rgba(224,51,122,.12); --on-accent:#FFFFFF;
@@ -509,7 +511,7 @@ const IC={
 IC.bpay=IC.pay;
 const icon=(n,cls='ico')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||''}</svg>`;
 
-const SKINS=[['auto','Как в системе','linear-gradient(135deg,#F2F3F7 50%,#0D0F13 50%)',['#3452E6','#4D6BFF']],['light','Светлая','#F2F3F7',['#11141B','#3452E6']],['dark','Тёмная','#0D0F13',['#E8EBF1','#4D6BFF']],['lux','Белый люкс','linear-gradient(135deg,#FFFFFF,#E4E6E8)',['#0E1013','#9AA0A7']],['pink','Розовая','#FFF4F8',['#E0337A','#2A1320']],['ny','Новогодняя','#0C1712',['#E0383F','#E8B64C']]];
+const SKINS=[['auto','Как в системе','linear-gradient(135deg,#F2F3F7 50%,#0D0F13 50%)',['#3452E6','#4D6BFF']],['light','Светлая','#F2F3F7',['#11141B','#3452E6']],['dark','Тёмная','#0D0F13',['#E8EBF1','#4D6BFF']],['lux','Макса ешка','linear-gradient(135deg,#FFFFFF,#E4E6E8)',['#0E1013','#9AA0A7']],['pink','Розовая','#FFF4F8',['#E0337A','#2A1320']],['ny','Новогодняя','#0C1712',['#E0383F','#E8B64C']]];
 function applySkin(v){if(v&&v!=='auto')document.documentElement.setAttribute('data-skin',v);else document.documentElement.removeAttribute('data-skin')}
 let SKIN='auto';try{SKIN=localStorage.getItem('teb.skin')||'auto'}catch(e){}applySkin(SKIN);
 /* personal background photo (stored only on this device) */
