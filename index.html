@@ -216,6 +216,8 @@ textarea.inp{min-height:80px;resize:vertical}
 .steps span.on{background:var(--accent)}
 .steps span.done{background:var(--good)}
 .stepper{display:flex;flex-direction:column;gap:8px}
+html[data-bg]{background:linear-gradient(color-mix(in srgb,var(--bg) 52%,transparent),color-mix(in srgb,var(--bg) 70%,transparent)),var(--user-bg) center/cover fixed no-repeat,var(--bg)!important}
+html[data-bg] body,html[data-bg] #view,html[data-bg] main{background:transparent!important}
 .btrack{display:flex;align-items:center;gap:0}
 .btrack .bt{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;font-size:11px;font-weight:700;color:var(--muted);text-align:center}
 .btrack .bt::before{content:"";position:absolute;top:50%;left:-50%;width:100%;height:3px;background:var(--surface2);z-index:0}
@@ -510,6 +512,9 @@ const icon=(n,cls='ico')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="
 const SKINS=[['auto','Как в системе','linear-gradient(135deg,#F2F3F7 50%,#0D0F13 50%)',['#3452E6','#4D6BFF']],['light','Светлая','#F2F3F7',['#11141B','#3452E6']],['dark','Тёмная','#0D0F13',['#E8EBF1','#4D6BFF']],['lux','Белый люкс','linear-gradient(135deg,#FFFFFF,#E4E6E8)',['#0E1013','#9AA0A7']],['pink','Розовая','#FFF4F8',['#E0337A','#2A1320']],['ny','Новогодняя','#0C1712',['#E0383F','#E8B64C']]];
 function applySkin(v){if(v&&v!=='auto')document.documentElement.setAttribute('data-skin',v);else document.documentElement.removeAttribute('data-skin')}
 let SKIN='auto';try{SKIN=localStorage.getItem('teb.skin')||'auto'}catch(e){}applySkin(SKIN);
+/* personal background photo (stored only on this device) */
+function applyBg(){let u=null;try{u=localStorage.getItem('teb.bg')}catch(e){}const r=document.documentElement;if(u){r.style.setProperty('--user-bg',`url("${u}")`);r.setAttribute('data-bg','1')}else{r.style.removeProperty('--user-bg');r.removeAttribute('data-bg')}}
+applyBg();
 const DESK=window.matchMedia('(min-width:1024px)');
 try{DESK.addEventListener('change',()=>{if(S.ready)paint()})}catch(e){}
 const waHtml=t=>esc(t).replace(/\*([^*\n]+)\*/g,'<b>$1</b>').replace(/~([^~\n]+)~/g,'<s>$1</s>');
@@ -1677,7 +1682,10 @@ SHEET.priceCustom=id=>{const m=S.mchat.find(x=>x.id===id);if(!m)return null;
   <div class="field"><label for="pc-n">Комментарий менеджеру / клиенту</label><input class="inp" id="pc-n" name="note" value="${esc(m.priceNote||'')}" placeholder="например: сборка 3 дня"></div>
   <div class="muted small">Kaspi посчитается сам: ÷ 0,85.</div><button class="btn primary" type="submit">Отправить цену</button></form>`};
 
-SHEET.theme=()=>`${head('Тема оформления','Выбирается для вас — у коллег своя')}<div class="skins">${SKINS.map(([v,t,bg,[a,b]])=>`<button class="skin" data-act="setSkin" data-v="${v}" aria-pressed="${SKIN===v}"><span class="sw" style="background:${bg}"><i style="width:40%;background:${a}"></i><i style="width:22%;background:${b}"></i></span><b>${t}</b></button>`).join('')}</div>`;
+SHEET.theme=()=>{let has=false;try{has=!!localStorage.getItem('teb.bg')}catch(e){}return `${head('Тема оформления','Выбирается для вас — у коллег своя')}<div class="skins">${SKINS.map(([v,t,bg,[a,b]])=>`<button class="skin" data-act="setSkin" data-v="${v}" aria-pressed="${SKIN===v}"><span class="sw" style="background:${bg}"><i style="width:40%;background:${a}"></i><i style="width:22%;background:${b}"></i></span><b>${t}</b></button>`).join('')}</div>
+  <div class="eyebrow">Фон</div><div class="btns"><button class="btn primary" data-act="setBg">🖼 ${has?'Сменить фото фона':'Поставить своё фото на фон'}</button>${has?'<button class="btn" data-act="clearBg">Убрать фото</button>':''}</div>
+  <div class="muted small">Фото хранится только на этом телефоне или компьютере, другие его не увидят.</div>`};
+
 function openSheet(type,arg,live=false){if(type!=='incident'&&S.incUnsub){S.incUnsub();S.incUnsub=null}S.sheet={type,arg,live};paintSheet(true)}
 function closeSheet(){if(S.incUnsub){S.incUnsub();S.incUnsub=null}S.sheet=null;$('#sheetWrap').hidden=true;$('#sheet').innerHTML=''}
 function paintSheet(first){
@@ -2120,6 +2128,11 @@ ACT.importData=()=>{const inp=document.createElement('input');inp.type='file';in
   try{const data=JSON.parse(await f.text());let n=0;let b=S.db.batch();let c=0;
     for(const [colName,docs] of Object.entries(data)){for(const [id,d] of Object.entries(docs)){b.set(S.db.doc(colName+'/'+id),d);c++;n++;if(c>=400){await b.commit();b=S.db.batch();c=0}}}
     if(c)await b.commit();toast('Импортировано записей: '+n);closeSheet()}catch(e){toast('Ошибка импорта: '+(e.message||e.code))}};inp.click()};
+ACT.setBg=()=>{const inp=document.createElement('input');inp.type='file';inp.accept='image/*';inp.onchange=()=>{const f=inp.files[0];if(!f)return;const img=new Image();img.onload=()=>{
+  const m=1600,k=Math.min(1,m/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  let q=.82,u=c.toDataURL('image/jpeg',q);while(u.length>1.8e6&&q>.4){q-=.12;u=c.toDataURL('image/jpeg',q)}
+  try{localStorage.setItem('teb.bg',u);applyBg();toast('Фон установлен');openSheet('theme')}catch(e){toast('Фото слишком большое — выберите другое')}URL.revokeObjectURL(img.src)};img.onerror=()=>toast('Не получилось открыть фото');img.src=URL.createObjectURL(f)};inp.click()};
+ACT.clearBg=()=>{try{localStorage.removeItem('teb.bg')}catch(e){}applyBg();toast('Фон убран');openSheet('theme')};
 ACT.closeSheet=()=>closeSheet();
 ACT.fOrders=d=>{S.f.orders=d.v;paint()};
 ACT.ordersStage=d=>{const m={queue:'queue',assembly:'work',setup:'work',test:'work',pack:'work',packed:'packed',shipped:'shipped'};S.f.orders=m[d.s]||'active';ACT.tab({t:'orders'})};
