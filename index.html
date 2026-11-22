@@ -755,16 +755,16 @@ function fabFor(tab,r){
 
 /* ---------- gate (no role yet) ---------- */
 function gateView(){
-  const free=S.team.filter(m=>!m.userId&&m.active!==false);
+  const free=S.team.filter(m=>!m.userId&&m.active!==false&&m.role!=='admin');
   if(S.myReq)return `<div class="gate"><div class="eyebrow">Заявка отправлена</div><h1>Ждём подтверждения</h1>
     <p class="muted">Администратор увидит вашу заявку и откроет доступ как <b>${esc(ROLES[S.myReq.role]||'')}</b>${S.myReq.memberId?' — '+esc(nameOf(S.myReq.memberId)):''}. Страница обновится сама.</p>
     <button class="btn" data-act="cancelReq">Отменить заявку</button></div>`;
   return `<div class="gate"><div class="eyebrow">TEB Gaming KZ · внутренний портал</div><h1>Кто вы в команде?</h1>${window.TEB_USER?`<div class="muted small">Вы вошли как ${esc(window.TEB_USER.email||'')} · <button class="btn sm" data-act="signOut">Сменить аккаунт</button></div>`:''}
    <form class="form panel" data-form="request">
     <div class="field"><label for="rq-m">Выберите себя</label>
-     <select class="inp" id="rq-m" name="memberId"><option value="">Меня нет в списке</option>
+     <select class="inp" id="rq-m" name="memberId" onchange="var g=this.closest('form').querySelector('.rq-new');if(g)g.hidden=!!this.value"><option value="">Меня нет в списке</option>
       ${free.map(m=>`<option value="${esc(m.id)}">${esc(m.name)} — ${esc(ROLES[m.role]||'')}</option>`).join('')}</select></div>
-    <div class="grid2">
+    <div class="grid2 rq-new">
      <div class="field"><label for="rq-n">Имя (если нет в списке)</label><input class="inp" id="rq-n" name="name" placeholder="Как вас зовут"></div>
      <div class="field"><label for="rq-r">Роль</label><select class="inp" id="rq-r" name="role">
       <option value="manager">Менеджер</option><option value="builder">Сборщик</option><option value="courier">Курьер</option></select></div>
@@ -2091,7 +2091,7 @@ SHEET.member=id=>{const m=id?S.team.find(x=>x.id===id):{role:'manager',active:tr
    ${m.userId?`<button class="btn sm danger" type="button" data-act="unlink" data-id="${esc(id)}" style="align-self:flex-start">Отвязать аккаунт</button>`:''}
    <button class="btn primary" type="submit">Сохранить</button></form>`};
 
-SHEET.approve=id=>{const r=S.requests.find(x=>x.id===id);if(!r)return null;const free=S.team.filter(m=>!m.userId);
+SHEET.approve=id=>{const r=S.requests.find(x=>x.id===id);if(!r)return null;const free=S.team.filter(m=>!m.userId&&m.role!=='admin');
   return `${head('Принять в команду',esc(r.memberId?nameOf(r.memberId):r.name||''))}<form class="form" data-form="approve" data-id="${esc(id)}">
    <div class="field"><label for="ap-m">Связать с сотрудником</label><select class="inp" id="ap-m" name="memberId"><option value="">+ создать нового: ${esc(r.name||'')}</option>${free.map(m=>opt(m.id,m.name+' — '+ROLES[m.role],r.memberId)).join('')}</select></div>
    <div class="field"><label for="ap-r">Роль</label><select class="inp" id="ap-r" name="role">${['manager','builder','courier'].map(v=>opt(v,ROLES[v],r.role)).join('')}</select></div>
