@@ -1466,7 +1466,7 @@ const teamSales=k=>{const f=S.plan[k]?.fact;const n=portalSales(k).length;return
 function worked(mid,k){const wd=(new Date(k+'T12:00:00Z').getUTCDay()+6)%7;if((S.schedule[mid]||[])[wd])return true;
   return portalSales(k).some(o=>soldBy(o)===mid)||S.notes.some(n=>n.createdBy===mid&&dayKey(n.createdAt||0)===k)}
 const payStart=()=>S.config.payStart||'2026-11-16';
-function payDay(mid,k){const L=(S.paylog[mid]||{})[k]||{};const team=teamSales(k),plan=planOf(k);const pm=portalSales(k).filter(o=>soldBy(o)===mid).length;const mine=L.sales!=null?Math.max(+L.sales,pm):pm;let w=L.w!=null?!!L.w:(worked(mid,k)||mine>0);if(k<payStart())w=false;
+function payDay(mid,k){const L=(S.paylog[mid]||{})[k]||{};const team=teamSales(k),plan=planOf(k);let w=L.w!=null?!!L.w:worked(mid,k);if(k<payStart())w=false;const mine=w?team:0;
   const met=plan>0&&team>=plan;const base=w?(met?PAY_PLAN:PAY_BASE):0;return{k,team,plan,mine,w,met,base,extra:mine*PAY_SALE,total:base+mine*PAY_SALE}}
 
 function goalForm(mid){const g=S.goals[mid]||{};const quick=[300000,500000,700000,1000000];
@@ -1514,7 +1514,7 @@ function goalCard(mid,month,td,daysLeft,editable){
    </div>
    <div class="section-h"><h2>План по неделям</h2></div>
    <div class="list">${weeks.map((w,i)=>`<div class="row" style="cursor:default"><div class="main"><div class="t1">${i===0?'Эта неделя':'Неделя '+(i+1)}</div><div class="t2">${fmtDay(w.from)} — ${fmtDay(w.to)} · ${w.days} дн.</div></div><div class="side"><div class="num" style="color:var(--fg);font-weight:700">${money(Math.ceil(perDay*w.days/1000)*1000)}</div><div>${salesIfPlan*w.days} продаж</div></div></div>`).join('')}</div>
-   <div class="hint">${todayLeft?`Сегодня для цели: ещё <b>${todayLeft}</b> ${todayLeft===1?'продажа':todayLeft<5?'продажи':'продаж'} (у тебя ${td.mine} из ${salesIfPlan}).`:`Сегодняшнюю норму для цели ты уже сделал ✅`}
+   <div class="hint">${todayLeft?`Сегодня для цели: ещё <b>${todayLeft}</b> ${todayLeft===1?'продажа':todayLeft<5?'продажи':'продаж'} (у команды ${td.team} из ${salesIfPlan}).`:`Сегодняшнюю норму для цели ты уже сделал ✅`}
     ${salesIfPlan>10?'<br>Как дойти: допродавай SSD 1 ТБ и 32 ГБ, возвращайся к «думающим» из заметок каждый день, закрывай звонком, а не перепиской.':''}</div>`}
   </div>`;
 }
@@ -1551,7 +1551,7 @@ VIEW.pay=()=>{
    <div class="section-h"><h2>Сегодня</h2><span class="spacer"></span><span class="pill ${td.met?'good':'warn'}">${td.met?'план выполнен 🔥':'план ещё не закрыт'}</span></div>
    <div class="kpis two">
     <div class="kpi"><span class="eyebrow">Продажи команды</span><span class="v">${td.team} / ${td.plan||'—'}</span><span class="s">${td.met?'за выход уже 8 000':need?`ещё ${need} — и выход станет 8 000 вместо 4 000`:'план не задан'}</span></div>
-    <div class="kpi"><span class="eyebrow">Мои продажи</span><span class="v">${td.mine}</span><span class="s">+${nfmt(td.extra)} ₸ · каждая следующая +2 000</span></div>
+    <div class="kpi"><span class="eyebrow">За продажи команды</span><span class="v">${td.mine} × 2 000</span><span class="s">+${nfmt(td.extra)} ₸ · каждая продажа команды +2 000</span></div>
    </div>
    <div class="bar"><i style="width:${td.plan?Math.min(100,td.team/td.plan*100):0}%;background:${td.met?'var(--good)':'var(--accent)'}"></i></div>
    <div class="small">Сейчас за сегодня: <b class="num">${money(td.total)}</b>${!td.met&&need?` · если закроем план — <b class="num">${money(PAY_PLAN+td.extra)}</b>`:''}</div>
@@ -1563,10 +1563,10 @@ VIEW.pay=()=>{
    <div class="kpi"><span class="eyebrow">До конца месяца</span><span class="v">${daysLeft}</span><span class="s">дней, чтобы заработать больше</span></div>
   </div>
   <div class="section-h"><h2>По дням</h2></div>
-  <div class="tbl"><table><thead><tr><th>Дата</th><th>План</th><th>Команда</th><th>Мои</th><th>Выход</th><th>За продажи</th><th>Итого</th></tr></thead><tbody>
-  ${days.slice().reverse().map(d=>`<tr><td>${fmtDay(d.k)}${d.k===t?' · сегодня':''}</td><td class="num">${d.plan||'—'}</td><td class="num ${d.met?'pos':''}">${d.team}${d.met?' ✓':''}</td><td class="num">${S.isAdmin?`<input class="inp num" style="width:56px;min-height:30px;padding:2px 6px" data-pl="sales" data-m="${esc(mid)}" data-k="${d.k}" value="${d.mine}">`:d.mine}</td><td class="num">${S.isAdmin?`<label class="check" style="padding:3px 8px;font-size:12px"><input type="checkbox" data-pl="w" data-m="${esc(mid)}" data-k="${d.k}" ${d.w?'checked':''}>${d.w?nfmt(d.base):'нет'}</label>`:(d.w?nfmt(d.base):'—')}</td><td class="num">${nfmt(d.extra)}</td><td class="num"><b>${nfmt(d.total)}</b></td></tr>`).join('')}
+  <div class="tbl"><table><thead><tr><th>Дата</th><th>План</th><th>Продажи команды</th><th>Выход</th><th>За продажи</th><th>Итого</th></tr></thead><tbody>
+  ${days.slice().reverse().map(d=>`<tr><td>${fmtDay(d.k)}${d.k===t?' · сегодня':''}</td><td class="num">${d.plan||'—'}</td><td class="num ${d.met?'pos':''}">${d.team}${d.met?' ✓':''}</td><td class="num">${S.isAdmin?`<label class="check" style="padding:3px 8px;font-size:12px"><input type="checkbox" data-pl="w" data-m="${esc(mid)}" data-k="${d.k}" ${d.w?'checked':''}>${d.w?nfmt(d.base):'нет'}</label>`:(d.w?nfmt(d.base):'—')}</td><td class="num">${nfmt(d.extra)}</td><td class="num"><b>${nfmt(d.total)}</b></td></tr>`).join('')}
   </tbody></table></div>
-  <div class="muted small">Зарплата считается с ${fmtDay(payStart())} (первый день после стажировки). ${S.isAdmin?'Ты можешь поправить продажи и выходы прямо в таблице. ':''}Выход: 4 000, если в этот день команда выполнила план — 8 000. Плюс 2 000 за каждую свою продажу. Клубы не считаются. Выход засчитывается по графику смен или по работе в портале.</div>
+  <div class="muted small">Зарплата считается с ${fmtDay(payStart())} (первый день после стажировки). ${S.isAdmin?'Выходы можно поправить галочкой в таблице, продажи команды — в «Команде» → план по дням. ':''}Выход: 4 000, если в этот день команда выполнила план — 8 000. Плюс 2 000 за каждую продажу команды в этот день — неважно, кто продал. Клубы не считаются. Выход засчитывается по графику смен или по работе в портале.</div>
   </div><div class="stick">
   <div class="bonus ${won?'open':''}">
     <div class="eyebrow">${won?'Бонус открыт':'Секретный бонус месяца'}</div>
