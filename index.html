@@ -56,8 +56,24 @@ html:root[data-skin="lux"] .panel,html:root[data-skin="lux"] .kpi,html:root[data
 html:root[data-skin="lux"] .total,html:root[data-skin="lux"] .bhero{background:linear-gradient(135deg,#1A1D22 0%,#0B0C0E 55%,#2A2E34 100%);color:#F4F4F2;box-shadow:0 0 0 1px #3A3F46 inset,0 14px 30px -18px rgba(0,0,0,.6)}
 html:root[data-skin="lux"] .btn.primary{background:linear-gradient(180deg,#24272C,#0B0C0E);box-shadow:0 0 0 1px #3A3F46 inset}
 html:root[data-skin="lux"] .brand::after{content:"";display:inline-block;width:22px;height:2px;margin-left:8px;vertical-align:middle;background:linear-gradient(90deg,#8E959D,#E9ECEF,#8E959D);border-radius:2px}
+html:root[data-skin="truck"]{
+  --bg:#141619; --surface:#1D2025; --surface2:#262A30; --line:#343941; --fg:#F2F1EC; --muted:#9EA4AB;
+  --accent:#F5B301; --accent-soft:rgba(245,179,1,.16); --on-accent:#111111;
+  --good:#3DBB74; --good-soft:rgba(61,187,116,.15); --warn:#FF8A00; --warn-soft:rgba(255,138,0,.16);
+  --bad:#EF4B4F; --bad-soft:rgba(239,75,79,.16); color-scheme:dark }
+html:root[data-skin="truck"] #top{border-bottom:0;box-shadow:0 3px 0 -1px #141619,0 3px 0 0 transparent}
+html:root[data-skin="truck"] #top::after{content:"";position:absolute;left:0;right:0;bottom:-3px;height:3px;background:repeating-linear-gradient(90deg,#F5B301 0 34px,transparent 34px 58px)}
+
+html:root[data-skin="truck"] .brand::after{content:"🚛";font-size:17px;margin-left:6px}
+html:root[data-skin="truck"] .total,html:root[data-skin="truck"] .bhero{background:linear-gradient(160deg,#3A3F46 0%,#1C1F23 45%,#2C3036 100%);color:#F2F1EC;border-top:6px solid transparent;border-image:repeating-linear-gradient(135deg,#F5B301 0 14px,#111 14px 28px) 6;box-shadow:0 0 0 1px #4A5058 inset}
+html:root[data-skin="truck"] .btn.primary{background:linear-gradient(180deg,#FFC21A,#E0A000);color:#111;box-shadow:0 2px 0 #9A6E00}
+html:root[data-skin="truck"] .panel,html:root[data-skin="truck"] .kpi,html:root[data-skin="truck"] .bcard,html:root[data-skin="truck"] .list{background-image:linear-gradient(180deg,rgba(255,255,255,.035),transparent 40%)}
+html:root[data-skin="truck"] h1,html:root[data-skin="truck"] h2,html:root[data-skin="truck"] .section-h h2{text-transform:uppercase;letter-spacing:.04em}
+html:root[data-skin="truck"] .tab[aria-current="true"]{box-shadow:inset 3px 0 0 #F5B301}
 html:root[data-skin="lux"]:not([data-bg]){background:linear-gradient(color-mix(in srgb,var(--bg) 50%,transparent),color-mix(in srgb,var(--bg) 72%,transparent)),url("eshka.jpg") center 30%/cover fixed no-repeat,var(--bg)!important}
 html:root[data-skin="lux"]:not([data-bg]) body,html:root[data-skin="lux"]:not([data-bg]) #view,html:root[data-skin="lux"]:not([data-bg]) main{background:transparent!important}
+html:root[data-skin="truck"]:not([data-bg]){background:linear-gradient(rgba(20,22,25,.62),rgba(20,22,25,.86)),url("fura.jpg") center 40%/cover fixed no-repeat,#141619!important}
+html:root[data-skin="truck"]:not([data-bg]) body,html:root[data-skin="truck"]:not([data-bg]) #view,html:root[data-skin="truck"]:not([data-bg]) main{background:transparent!important}
 html:root[data-skin="pink"]{
   --bg:#FFF4F8; --surface:#FFFFFF; --surface2:#FDEAF1; --line:#F5D2DF; --fg:#2A1320; --muted:#8C6275;
   --accent:#E0337A; --accent-soft:rgba(224,51,122,.12); --on-accent:#FFFFFF;
@@ -524,7 +540,7 @@ const IC={
 IC.bpay=IC.pay;
 const icon=(n,cls='ico')=>`<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||''}</svg>`;
 
-const SKINS=[['auto','Как в системе','linear-gradient(135deg,#F2F3F7 50%,#0D0F13 50%)',['#3452E6','#4D6BFF']],['light','Светлая','#F2F3F7',['#11141B','#3452E6']],['dark','Тёмная','#0D0F13',['#E8EBF1','#4D6BFF']],['lux','Макса ешка','linear-gradient(135deg,#FFFFFF,#E4E6E8)',['#0E1013','#9AA0A7']],['pink','Розовая','#FFF4F8',['#E0337A','#2A1320']],['ny','Новогодняя','#0C1712',['#E0383F','#E8B64C']]];
+const SKINS=[['auto','Как в системе','linear-gradient(135deg,#F2F3F7 50%,#0D0F13 50%)',['#3452E6','#4D6BFF']],['light','Светлая','#F2F3F7',['#11141B','#3452E6']],['dark','Тёмная','#0D0F13',['#E8EBF1','#4D6BFF']],['lux','Макса ешка','linear-gradient(135deg,#FFFFFF,#E4E6E8)',['#0E1013','#9AA0A7']],['truck','Фура','linear-gradient(135deg,#2A2E34,#15171A)',['#F5B301','#C9CED4']],['pink','Розовая','#FFF4F8',['#E0337A','#2A1320']],['ny','Новогодняя','#0C1712',['#E0383F','#E8B64C']]];
 function applySkin(v){if(v&&v!=='auto')document.documentElement.setAttribute('data-skin',v);else document.documentElement.removeAttribute('data-skin')}
 let SKIN='auto';try{SKIN=localStorage.getItem('teb.skin')||'auto'}catch(e){}applySkin(SKIN);
 /* personal background photo (stored only on this device) */
@@ -607,6 +623,8 @@ const INC_ST={open:['Открыт','bad'],work:['В работе','warn'],done:[
 const SHIP={kaspi:'Kaspi Доставка',indrive:'InDrive',pickup:'Самовывоз',courier:'Наш курьер'};
 const WEEK=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const TAB_T={dash:'Сводка',orders:'Заказы',notes:'Заметки',calc:'Калькулятор',mchat:'Чат менеджеров',pay:'Зарплата',bpay:'Зарплата',crm:'CRM',build:'Сборка',inc:'Инциденты',chat:'Чат сборки',courier:'Доставки',stock:'Склад',money:'Финансы',team:'Команда',sched:'График'};
+const TAB_TRUCK={dash:'Бортовик',orders:'Грузы',notes:'Путевой лист',calc:'Тариф',mchat:'Рация менеджеров',pay:'Рейсовые',bpay:'Рейсовые',build:'Погрузка',inc:'ДТП и поломки',chat:'Рация CB',courier:'Рейсы',stock:'Терминал',money:'Касса',team:'Автоколонна',sched:'Смены'};
+const tabT=t=>(typeof SKIN!=='undefined'&&SKIN==='truck'&&TAB_TRUCK[t])||TAB_T[t];
 const ROLE_TABS={
  admin:['dash','orders','notes','calc','mchat','build','inc','chat','courier','stock','money','team'],
  manager:['notes','orders','calc','mchat','pay','build','inc','stock','sched'],
@@ -764,7 +782,7 @@ function paintTabs(tabs){
   const badge=t=>{const n=badgeFor(t);return n?`<span class="dot num">${n>99?'99+':n}</span>`:''};
   $('#tabsIn').innerHTML=vis.map(t=>{
     const cur=t==='more'?inMore:S.tab===t;
-    const label=t==='more'&&inMore?TAB_T[S.tab]:(t==='more'?'Ещё':TAB_T[t]);
+    const label=t==='more'&&inMore?tabT(S.tab):(t==='more'?'Ещё':tabT(t));
     return `<button class="tab" data-act="${t==='more'?'more':'tab'}" data-t="${t}" aria-current="${cur}">${icon(t==='more'&&inMore?S.tab:t)}${esc(label)}${t==='more'?'':badge(t)}</button>`}).join('');
 }
 function badgeFor(t){
@@ -2132,7 +2150,7 @@ SHEET.approve=id=>{const r=S.requests.find(x=>x.id===id);if(!r)return null;const
    <button class="btn primary" type="submit">Открыть доступ</button></form>`};
 
 SHEET.more=()=>{const tabs=ROLE_TABS[role()]||[];const rest=tabs.slice(4);
-  return `${head('Разделы',window.TEB_USER?esc(window.TEB_USER.email||''):'')}<div class="list">${rest.map(t=>`<button class="row" data-act="tab" data-t="${t}">${icon(t)}<div class="main"><div class="t1">${TAB_T[t]}</div></div>${badgeFor(t)?`<span class="pill bad">${badgeFor(t)}</span>`:''}</button>`).join('')}</div>${S.isAdmin&&!S.viewAs?'<button class="btn" data-act="importData">Импорт данных из файла</button>':''}<button class="btn danger" data-act="signOut">Выйти из аккаунта</button>`};
+  return `${head('Разделы',window.TEB_USER?esc(window.TEB_USER.email||''):'')}<div class="list">${rest.map(t=>`<button class="row" data-act="tab" data-t="${t}">${icon(t)}<div class="main"><div class="t1">${tabT(t)}</div></div>${badgeFor(t)?`<span class="pill bad">${badgeFor(t)}</span>`:''}</button>`).join('')}</div>${S.isAdmin&&!S.viewAs?'<button class="btn" data-act="importData">Импорт данных из файла</button>':''}<button class="btn danger" data-act="signOut">Выйти из аккаунта</button>`};
 
 /* ---------- actions ---------- */
 const ACT={};
@@ -2201,7 +2219,7 @@ ACT.invoiceCancel=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;i
 ACT.warrantyPdf=d=>{const o=S.orders.find(x=>x.id===d.id);if(o)downloadWarranty(o,'pdf')};
 ACT.warrantyPng=d=>{const o=S.orders.find(x=>x.id===d.id);if(o)downloadWarranty(o,'png')};
 ACT.theme=()=>openSheet('theme');
-ACT.setSkin=d=>{SKIN=d.v;try{localStorage.setItem('teb.skin',d.v)}catch(e){}applySkin(d.v);paintSheet()};
+ACT.setSkin=d=>{SKIN=d.v;try{localStorage.setItem('teb.skin',d.v)}catch(e){}applySkin(d.v);paintSheet();schedulePaint()};
 ACT.fNotesWho=d=>{S.f.notesWho=d.v;paint()};
 ACT.editNote=d=>openSheet('note',d.id);
 ACT.qt=(d)=>{const el=document.getElementById(d.for);if(el)el.value=toLocalInput(+d.ts)};
