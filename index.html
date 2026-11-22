@@ -644,7 +644,7 @@ const role=()=>S.isAdmin?(S.viewAs||'admin'):(member()?.role||null);
 const whoId=()=>member()?.id||(S.isAdmin?'admin':'u');
 const nameOf=id=>id==='admin'?'Админ':(S.team.find(m=>m.id===id)?.name||'—');
 const builders=()=>S.team.filter(m=>m.role==='builder'&&m.active!==false);
-const isLead=()=>S.isAdmin||!!member()?.lead;
+const isLead=()=>!!member()?.lead||(S.isAdmin&&member()?.role!=='builder');
 const rate=()=>+S.config.rate||470;
 const kitOf=id=>S.kits.find(k=>k.id===id);
 const upOf=id=>S.upgrades.find(u=>u.id===id);
@@ -2186,7 +2186,7 @@ ACT.openInc=d=>{
   S.incUnsub=col('incidents/'+d.id+'/msgs').orderBy('at','asc').limit(300).onSnapshot(s=>{S.incMsgs=s.docs.map(x=>({id:x.id,...x.data()}));if(S.sheet?.type==='incident'){paintSheet();const el=$('#sheet');el.scrollTop=el.scrollHeight}},()=>{});
   openSheet('incident',d.id,true);
 };
-ACT.assign=d=>openSheet('assign',d.id);
+ACT.assign=d=>{if(!isLead())return toast('Назначает только старший сборщик');openSheet('assign',d.id)};
 ACT.ship=d=>openSheet('ship',d.id);
 ACT.cour=d=>{if(d.step==='recv')return courRecv(d.id);openSheet('cour',{id:d.id,step:d.step})};
 ACT.newStock=()=>openSheet('stockItem',null);
@@ -2250,7 +2250,7 @@ ACT.approve=d=>openSheet('approve',d.id);
 
 ACT.take=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(o.builderId&&o.builderId!==whoId())return toast('Этот заказ уже взял '+nameOf(o.builderId));
   if(await upd(doc('orders/'+o.id),{builderId:whoId(),stageAt:Date.now(),history:hist(o,'Взял в сборку')})){sysChat(`${nameOf(whoId())} взял №${o.num}`);toast('Заказ ваш')}};
-ACT.doAssign=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;
+ACT.doAssign=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(!isLead())return toast('Назначает только старший сборщик');
   if(await upd(doc('orders/'+o.id),{builderId:d.b,stageAt:Date.now(),history:hist(o,'Назначен: '+nameOf(d.b))})){sysChat(`№${o.num} → ${nameOf(d.b)}`);closeSheet();toast('Назначено: '+nameOf(d.b))}};
 ACT.startBuild=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;
   let deducted=!!o.stockDeducted;const k=kitOf(o.kitId);
