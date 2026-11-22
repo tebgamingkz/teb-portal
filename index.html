@@ -412,8 +412,19 @@ textarea.inp{min-height:80px;resize:vertical}
   const CFG={apiKey:"AIzaSyD1rXGA76gFrK8zQRlgJ-PFfG0XBAUM70I",authDomain:"teb-portal-66a41.firebaseapp.com",projectId:"teb-portal-66a41",storageBucket:"teb-portal-66a41.firebasestorage.app",messagingSenderId:"519157942789",appId:"1:519157942789:web:a823f5b94937e85e8a2a6c"};
   const ADMINS=["face.tron@bk.ru", "ttteb@mail.ru"];
   firebase.initializeApp(CFG);
-  const fdb=firebase.firestore();
+  const raw=firebase.firestore();
   try{fdb.settings({ignoreUndefinedProperties:true,experimentalAutoDetectLongPolling:true})}catch(e){}
+  /* Firestore can't store arrays inside arrays (kit specs are [[name,value],...]) — encode transparently */
+  const isObj=v=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.getPrototypeOf(v)===Object.prototype;
+  const enc=v=>Array.isArray(v)?v.map(x=>Array.isArray(x)?{__a:enc(x)}:enc(x)):isObj(v)?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,enc(x)])):v;
+  const dec=v=>Array.isArray(v)?v.map(dec):isObj(v)?(Object.keys(v).length===1&&Array.isArray(v.__a)?dec(v.__a):Object.fromEntries(Object.entries(v).map(([k,x])=>[k,dec(x)]))):v;
+  const wSnap=s=>({id:s.id,exists:s.exists,metadata:s.metadata,data:()=>s.exists===false?undefined:dec(s.data())});
+  const wQS=q=>({docs:q.docs.map(wSnap),size:q.size,empty:q.empty,metadata:q.metadata});
+  const wDoc=r=>({_raw:r,id:r.id,path:r.path,set:d=>r.set(enc(d)),update:d=>r.update(enc(d)),delete:()=>r.delete(),get:()=>r.get().then(wSnap),
+    onSnapshot:(n,e)=>r.onSnapshot(s=>n(wSnap(s)),e),collection:p=>wQ(r.collection(p))});
+  const wQ=q=>({where:(...a)=>wQ(q.where(...a)),orderBy:(...a)=>wQ(q.orderBy(...a)),limit:n=>wQ(q.limit(n)),get:()=>q.get().then(wQS),
+    onSnapshot:(n,e)=>q.onSnapshot(s=>n(wQS(s)),e),doc:id=>wDoc(id?q.doc(id):q.doc()),add:d=>q.add(enc(d)).then(wDoc)});
+  const fdb={doc:p=>wDoc(raw.doc(p)),collection:p=>wQ(raw.collection(p)),batch:()=>{const b=raw.batch();return{set:(r,d)=>{b.set(r._raw,enc(d))},update:(r,d)=>{b.update(r._raw,enc(d))},delete:r=>{b.delete(r._raw)},commit:()=>b.commit()}}};
   const auth=firebase.auth();
   try{auth.languageCode='ru'}catch(e){}
   let ready;const authReady=new Promise(r=>ready=r);
