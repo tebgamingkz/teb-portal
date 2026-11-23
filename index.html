@@ -1067,6 +1067,11 @@ VIEW.calc=()=>{
     <div class="total-v num">${main}</div><div class="total-s">${sub}</div>
     ${rows.length?`<div class="total-row">${rows.filter(r=>r[0]!==pay).map(r=>`<button data-act="calcPay" data-v="${r[0]}"><span>${r[1]}</span><b class="num">${money(r[2])}</b></button>`).join('')}</div>`:''}
   </div>`}
+  ${k&&!k.custom&&ok?(()=>{const q=Math.max(1,+S.calc.qty||1);const cur=pay==='cash'?(disc?P.cash2:P.cash):pay==='kaspi'?P.kaspi:pay==='halyk'?P.halyk:(S.calc.mixCash?mixCalc(P.cash,S.calc.mixCash,S.calc.mixVia).total:null);
+   return `<div class="grid2" style="grid-template-columns:150px minmax(0,1fr)"><div class="field"><label>Сколько штук</label><div style="display:flex;gap:6px;align-items:center"><button class="btn sm" data-act="cQty" data-d="-1" aria-label="Меньше">−</button><span class="inp num" style="display:flex;align-items:center;justify-content:center;min-width:0;flex:1">${q}</span><button class="btn sm" data-act="cQty" data-d="1" aria-label="Больше">+</button></div></div>
+   <div class="field"><label for="ownP">Продал за — своя цена, ₸</label><input class="inp num" id="ownP" data-cc="own" inputmode="numeric" value="${S.calc.own||''}" placeholder="${cur?'по прайсу '+nfmt(cur*q):'своя сумма'}"></div></div>
+   ${q>1&&cur&&!S.calc.own?`<div class="hint">${money(cur)} × ${q} шт = <b class="num">${money(cur*q)}</b></div>`:''}
+   ${S.calc.own?`<div class="hint">Своя цена: <b class="num">${money(S.calc.own)}</b>${q>1?` за ${q} шт`:''}${cur?` · по прайсу было ${money(cur*q)}`:''}${S.isAdmin&&!S.viewAs?(()=>{const v=suggestMargin({kitId:k.id,upgrades:S.calc.ups,amount:S.calc.own,payType:{cash:'cash',kaspi:'kaspi_inst',halyk:'halyk',mixed:'cash'}[pay],qty:q});return v!=null?` · маржа <b class="num">${mln(v)}</b>`:''})():''} <button class="btn sm" data-act="ownClear">Сбросить</button></div>`:''}`})():''}
   ${c.missing.length?`<div class="hint" style="background:var(--warn-soft)">Нет цены: ${esc(c.missing.join(', '))}. Уточните у Адиля.</div>`:''}
   ${adminLine}
   <div class="btns"><button class="btn primary" style="flex:2;min-height:50px;font-size:15px" data-act="copySpec" ${k?'':'disabled'}>Скопировать клиенту</button><button class="btn" style="flex:1;min-height:50px" data-act="calcOrder" ${k?'':'disabled'}>Оформить заказ</button></div>
@@ -2346,7 +2351,9 @@ ACT.variant=d=>{S.calc.kitId=d.k;paint()};
 ACT.payMore=()=>{S.calc.payMore=true;paint()};
 ACT.calcPay=d=>{S.calc.pay=d.v;paint()};
 ACT.clearUps=()=>{S.calc.ups=[];paint()};
-ACT.calcOrder=()=>{const pt={cash:'cash',kaspi:'kaspi_inst',halyk:'halyk',mixed:'mixed'}[S.calc.pay||'kaspi'];openSheet('orderForm',{prefill:{kitId:S.calc.kitId,upgrades:[...S.calc.ups],...(S.calc.perText||S.calc.perPrice?{note:'Своя периферия: '+(S.calc.perText||'')+(S.calc.perPrice?' (+'+nfmt(S.calc.perPrice)+' нал)':''),amount:calcOrder({kitId:S.calc.kitId,upgrades:S.calc.ups,payType:pt,discount:pt==='cash'&&!!S.calc.discount,mixCash:S.calc.mixCash,mixVia:S.calc.mixVia,extraCash:perPrice()}).total,amountManual:true}:{}),payType:pt,discount:pt==='cash'&&!!S.calc.discount,mixCash:pt==='mixed'?S.calc.mixCash:0,mixVia:S.calc.mixVia||'kaspi'}})};
+ACT.cQty=d=>{S.calc.qty=Math.max(1,(+S.calc.qty||1)+(+d.d));paint()};
+ACT.ownClear=()=>{S.calc.own=0;paint()};
+ACT.calcOrder=()=>{const _os=openSheet;const q=Math.max(1,+S.calc.qty||1);const _wrap=(n,a)=>{if(a&&a.prefill){a.prefill.qty=q;if(S.calc.own){a.prefill.amount=S.calc.own;a.prefill.amountManual=true}else if(a.prefill.amountManual&&a.prefill.amount)a.prefill.amount*=q}return _os(n,a)};const pt={cash:'cash',kaspi:'kaspi_inst',halyk:'halyk',mixed:'mixed'}[S.calc.pay||'kaspi'];_wrap('orderForm',{prefill:{kitId:S.calc.kitId,upgrades:[...S.calc.ups],...(S.calc.perText||S.calc.perPrice?{note:'Своя периферия: '+(S.calc.perText||'')+(S.calc.perPrice?' (+'+nfmt(S.calc.perPrice)+' нал)':''),amount:calcOrder({kitId:S.calc.kitId,upgrades:S.calc.ups,payType:pt,discount:pt==='cash'&&!!S.calc.discount,mixCash:S.calc.mixCash,mixVia:S.calc.mixVia,extraCash:perPrice()}).total,amountManual:true}:{}),payType:pt,discount:pt==='cash'&&!!S.calc.discount,mixCash:pt==='mixed'?S.calc.mixCash:0,mixVia:S.calc.mixVia||'kaspi'}})};
 ACT.copySpec=()=>{const k=kitOf(S.calc.kitId);copyText(clientText(k,S.calc.ups.map(upOf).filter(Boolean)))};
 ACT.copyFull=()=>{const k=kitOf(S.calc.kitId);copyText(clientFull(k,S.calc.ups.map(upOf).filter(Boolean)))};
 ACT.textMode=d=>{S.calc.full=d.v==='full';paint()};
@@ -2548,7 +2555,7 @@ document.addEventListener('submit',e=>{const f=e.target;if(!f.dataset.form)retur
   const b=f.querySelector('button[type="submit"]');if(b){if(b.disabled)return;b.disabled=true}
   Promise.resolve(h(new FormData(f),f)).finally(()=>{if(b&&b.isConnected)b.disabled=false})});
 let inT;
-document.addEventListener('input',e=>{const cc=e.target.dataset?.cc;if(cc){S.calc[cc]=['perPrice','cPrice'].includes(cc)?(num(e.target.value)||0):e.target.value;clearTimeout(inT);inT=setTimeout(paint,350);return}
+document.addEventListener('input',e=>{const cc=e.target.dataset?.cc;if(cc){S.calc[cc]=['perPrice','cPrice','own'].includes(cc)?(num(e.target.value)||0):e.target.value;clearTimeout(inT);inT=setTimeout(paint,350);return}
   const mx=e.target.dataset?.mix;if(mx==='cash'){S.calc.mixCash=num(e.target.value)||0;clearTimeout(inT);inT=setTimeout(paint,250);return}
   const of=e.target.closest&&e.target.closest('form[data-form="order"]');if(of){recalcOrderForm(of,e.target);return}const k=e.target.dataset?.input;if(!k)return;S.f[k]=e.target.value;clearTimeout(inT);inT=setTimeout(paint,180)});
 document.addEventListener('change',e=>{
