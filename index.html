@@ -720,6 +720,8 @@ async function boot(){
   const timer=setTimeout(()=>{if(!S.ready){S.ready=true;S.slow=true;paint()}},10000);
   /* one-time data updates shipped with the site, applied once by the first admin who opens it */
 const DATA_PATCHES=[
+ {id:'o1559-ready-2026-11-23',label:'№1559 готов — ждёт самовывоз',run:async()=>{const o=S.orders.find(x=>String(x.num)==='1559'&&x.stage!=='cancelled');if(!o)return false;if(o.stage==='packed'&&o.delivery==='pickup')return true;
+   return await upd(doc('orders/'+o.id),{stage:'packed',stageAt:Date.now(),builtAt:o.builtAt||Date.now(),builtBy:o.builtBy||o.builderId||null,delivery:'pickup',address:'',courierCity:null,deliveryDate:'',deliverySlot:'',history:hist(o,'Готов — ждёт клиента, самовывоз')})}},
  {id:'cheaper-2026-11-23',writes:[
   ['upgrades/dn-5050',{group:'Видеокарта',name:'RTX 5050',order:1,price:-45000,priceInst:null,family:'Бегамот'}],
   ['upgrades/dn-3070',{group:'Видеокарта',name:'RTX 3070',order:1.2,price:-60000,priceInst:null,family:'Бегамот'}],
@@ -735,11 +737,11 @@ const DATA_PATCHES=[
 ];
 let patchBusy=false;
 async function runPatches(){if(patchBusy||!S.isAdmin||!Array.isArray(S.patchesDone))return;const todo=DATA_PATCHES.filter(p=>!S.patchesDone.includes(p.id));if(!todo.length)return;patchBusy=true;
-  try{for(const p of todo){for(const [path,data] of p.writes)await doc(path).set(data);S.patchesDone=[...S.patchesDone,p.id];await doc('config/patches').set({done:S.patchesDone,at:Date.now()});toast('Обновлено: '+({gpu:'цены видеокарт',cheaper:'варианты «дешевле» для Бегамота'}[p.id.split('-')[0]]||p.id))}}catch(e){console.warn('patch',e)}patchBusy=false}
+  try{for(const p of todo){if(p.run){if(!S.loaded.has('orders'))continue;if(!(await p.run()))continue}else for(const [path,data] of p.writes)await doc(path).set(data);S.patchesDone=[...S.patchesDone,p.id];await doc('config/patches').set({done:S.patchesDone,at:Date.now()});toast('Обновлено: '+(p.label||({gpu:'цены видеокарт',cheaper:'варианты «дешевле» для Бегамота'}[p.id.split('-')[0]]||p.id)))}}catch(e){console.warn('patch',e)}patchBusy=false}
   const done=name=>{S.loaded.add(name);if(!S.ready&&['team','orders'].every(n=>S.loaded.has(n))){S.ready=true;clearTimeout(timer)}schedulePaint()};
   const subCol=(name,q,map)=>q.onSnapshot(snap=>{map(snap.docs.map(d=>({id:d.id,...d.data()})));if(!snap.metadata.fromCache)done(name);else schedulePaint()},e=>{done(name)});
   subCol('team',col('team'),a=>S.team=a.sort((x,y)=>(x.name||'').localeCompare(y.name||'','ru')));
-  subCol('orders',col('orders').orderBy('createdAt','desc').limit(500),a=>S.orders=a);
+  subCol('orders',col('orders').orderBy('createdAt','desc').limit(500),a=>{S.orders=a;setTimeout(()=>{if(typeof runPatches==='function')runPatches()},0)});
   subCol('notes',col('notes').orderBy('updatedAt','desc').limit(1000),a=>S.notes=a);
   subCol('incidents',col('incidents').orderBy('createdAt','desc').limit(200),a=>S.incidents=a);
   subCol('stock',col('stock'),a=>S.stock=a.sort((x,y)=>(x.cat||'').localeCompare(y.cat||'','ru')||(x.name||'').localeCompare(y.name||'','ru')));
