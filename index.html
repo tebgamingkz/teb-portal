@@ -631,7 +631,7 @@ const INC_ST={open:['Открыт','bad'],work:['В работе','warn'],done:[
 const INC_KIND={problem:['Проблема',''],replace:['Замена по браку','warn'],refund:['Возврат','bad']};
 const REPL_ST={wait:['Ждём замену','warn'],sent:['Отправили','accent'],done:['Заменено','good']};
 const isRepl=i=>i.kind==='replace'||i.kind==='refund';
-function clientText(i){const it=i.item?' — '+i.item:'',num=i.orderNum?` (заказ №${i.orderNum})`:'',city=i.city?` в ${i.city}`:'';const hi='Здравствуйте! Это TEB GAMING.\n';const st=isRepl(i)?(i.replStatus||'wait'):(i.status==='done'?'done':'open');
+function incClientText(i){const it=i.item?' «'+i.item+'»':'',num=i.orderNum?` (заказ №${i.orderNum})`:'',city=i.city?` в ${i.city}`:'';const hi='Здравствуйте! Это TEB GAMING.\n';const st=isRepl(i)?(i.replStatus||'wait'):(i.status==='done'?'done':'open');
 const T={replace:{wait:`${hi}Приняли вашу заявку на замену${it}${num}. Это гарантийный случай, замена за наш счёт. Уже оформляем, как отправим — сразу напишем и скажем, когда ждать.`,sent:`${hi}Замену${it}${num} отправили${city}. Как получите — проверьте, пожалуйста, и напишите, что всё работает 🙏`,done:`${hi}Замена${it}${num} завершена. Спасибо за терпение! Гарантия продолжает действовать — если что-то понадобится, пишите сюда.`},
 refund:{wait:`${hi}Приняли вашу заявку на возврат${it}${num}. Оформляем, как запустим возврат денег — сразу напишем.`,sent:`${hi}Возврат${it}${num} оформили, деньги отправлены. Как поступят — отпишитесь, пожалуйста.`,done:`${hi}Возврат${it}${num} завершён. Спасибо, что были с нами — если понадобится помощь, пишите.`},
 problem:{open:`${hi}Приняли ваше обращение${num}. Уже разбираемся и в ближайшее время вернёмся с решением.`,done:`${hi}Ваш вопрос${num} решён. Если что-то ещё — пишите сюда, всегда на связи.`}};
@@ -2135,7 +2135,7 @@ SHEET.incident=id=>{
   const o=S.orders.find(x=>x.id===i.orderId);
   return `${head(esc(i.title),`${(SEV[i.severity]||SEV.mid)[0]} · ${esc(nameOf(i.createdBy))} · ${fmtDT(i.createdAt)}`)}
   ${isRepl(i)?`<div class="field"><label>${INC_KIND[i.kind][0]}${i.item?' · '+esc(i.item):''}</label><div class="chips">${Object.entries(REPL_ST).map(([v,[t]])=>`<button class="chip" data-act="replStatus" data-id="${esc(i.id)}" data-v="${v}" aria-pressed="${(i.replStatus||'wait')===v}">${t}</button>`).join('')}</div></div>`:''}
-  <div class="field"><label>Текст клиенту</label><div class="muted" style="white-space:pre-line;font-size:13px;padding:10px;border:1px solid var(--line);border-radius:10px">${esc(clientText(i))}</div><button class="btn primary block" style="margin-top:8px" data-act="copyClient" data-id="${esc(i.id)}">📋 Скопировать клиенту</button></div>
+  <div class="field"><label>Текст клиенту</label><div class="muted" style="white-space:pre-line;font-size:13px;padding:10px;border:1px solid var(--line);border-radius:10px">${esc(incClientText(i))}</div><button class="btn primary block" style="margin-top:8px" data-act="copyClient" data-id="${esc(i.id)}">📋 Скопировать клиенту</button></div>
   <div class="chips">${Object.entries(INC_ST).map(([v,[t]])=>`<button class="chip" data-act="incStatus" data-id="${esc(i.id)}" data-v="${v}" aria-pressed="${(i.status||'open')===v}">${t}</button>`).join('')}</div>
   ${i.city||i.pc||i.bought?`<dl class="kv">${i.orderNum?`<dt>№ заказа</dt><dd>${esc(i.orderNum)}</dd>`:''}<dt>Город</dt><dd>${esc(i.city||'—')}</dd><dt>Компьютер</dt><dd>${esc(i.pc||'—')}</dd><dt>Когда брал</dt><dd>${i.bought?fmtDay(i.bought)+' · '+(()=>{const d=Math.round((Date.now()-new Date(i.bought+'T12:00:00').getTime())/864e5);return d<1?'сегодня':d+' дн. назад'})():'—'}</dd></dl>`:''}
   ${o?`<button class="btn sm" data-act="openOrder" data-id="${esc(o.id)}" style="align-self:flex-start">Заказ №${esc(o.num)} · ${esc(stage(o).t)}</button>`:''}
@@ -2277,7 +2277,7 @@ ACT.ordersStage=d=>{const m={queue:'queue',assembly:'work',setup:'work',test:'wo
 ACT.fCrm=d=>{S.f.crm=d.v;paint()};
 ACT.crmMine=()=>{S.f.crmMine=!S.f.crmMine;paint()};
 ACT.fInc=d=>{S.f.inc=d.v;paint()};
-ACT.copyClient=d=>{const i=S.incidents.find(x=>x.id===d.id);if(i)copyText(clientText(i))};
+ACT.copyClient=d=>{const i=S.incidents.find(x=>x.id===d.id);if(i)copyText(incClientText(i))};
 ACT.replStatus=async d=>{const i=S.incidents.find(x=>x.id===d.id);if(!i)return;const patch={replStatus:d.v};if(d.v==='done')patch.status='done';if(await upd(doc('incidents/'+i.id),patch))toast((REPL_ST[d.v]||[])[0]||'Сохранено')};
 ACT.fCour=d=>{S.f.courier=d.v||null;paint()};
 ACT.fMoney=d=>{S.f.money=d.v;paint()};
