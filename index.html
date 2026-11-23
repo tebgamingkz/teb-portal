@@ -631,9 +631,9 @@ const INC_ST={open:['Открыт','bad'],work:['В работе','warn'],done:[
 const INC_KIND={problem:['Проблема',''],replace:['Замена по браку','warn'],refund:['Возврат','bad']};
 const REPL_ST={wait:['Ждём замену','warn'],sent:['Отправили','accent'],done:['Заменено','good']};
 const isRepl=i=>i.kind==='replace'||i.kind==='refund';
-function incClientText(i){const o=S.orders.find(x=>x.id===i.orderId);const head=i.kind==='refund'?'Возврат':i.kind==='replace'?'Замена':'Инцидент';
+function incClientText(i){const o=S.orders.find(x=>x.id===i.orderId);const head=i.kind==='refund'?'💸 Возврат':i.kind==='replace'?'🔄 Замена':'⚠️ Инцидент';
 const num=i.orderNum||o?.num||'';const cy=i.city||o?.city||'',ad=i.address||o?.address||'';const addr=ad&&cy&&ad.toLowerCase().includes(cy.toLowerCase())?ad:[cy,ad].filter(Boolean).join(', ');const ph=i.phone||o?.phone||'';
-return `${head}${i.item?' '+i.item:''}${num?' по заказу '+num:''}\n\nПричина: ${i.title||'—'}\n\nАдрес: ${addr||'—'}\nНомер: ${ph||'—'}\nВремя - ${i.when||'уточним днем завтра'}`}
+return `${head}${i.item?' '+i.item:''}${num?' по заказу №'+num:''}\n\n❗ Причина: ${i.title||'—'}\n\n🏙️ Адрес: ${addr||'—'}\n📞 Номер: ${ph||'—'}\n⌛ Время - ${i.when||'уточним днем завтра'}\n\n✅ TEB GAMING — гарантия на связи`}
 const SHIP={kaspi:'Kaspi Доставка',indrive:'InDrive',pickup:'Самовывоз',courier:'Наш курьер'};
 const WEEK=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const TAB_T={dash:'Сводка',orders:'Заказы',notes:'Заметки',calc:'Калькулятор',mchat:'Чат менеджеров',pay:'Зарплата',bpay:'Зарплата',crm:'CRM',build:'Сборка',inc:'Инциденты',chat:'Чат сборки',courier:'Доставки',stock:'Склад',money:'Финансы',team:'Команда',sched:'График'};
