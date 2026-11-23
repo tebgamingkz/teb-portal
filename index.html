@@ -723,6 +723,8 @@ async function boot(){
   const timer=setTimeout(()=>{if(!S.ready){S.ready=true;S.slow=true;paint()}},10000);
   /* one-time data updates shipped with the site, applied once by the first admin who opens it */
 const DATA_PATCHES=[
+ {id:'wc7800-to-22-2026-11-23',label:'заказ с 7800X3D + водянкой перенесён на 22.11',run:async()=>{const m=S.orders.filter(o=>o.stage!=='cancelled'&&saleDay(o)==='2026-11-23'&&(o.upgrades||[]).includes('up-7800x3d')&&(o.upgrades||[]).includes('up-water'));
+   if(m.length!==1)return m.length===0&&S.orders.some(o=>o.soldDate==='2026-11-22'&&(o.upgrades||[]).includes('up-7800x3d')&&(o.upgrades||[]).includes('up-water'));const o=m[0];return await upd(doc('orders/'+o.id),{soldDate:'2026-11-22',history:hist(o,'Дата продажи → 22.11')})}},
  {id:'o1559-ready-2026-11-23',label:'№1559 готов — ждёт самовывоз',run:async()=>{const o=S.orders.find(x=>String(x.num)==='1559'&&x.stage!=='cancelled');if(!o)return false;if(o.stage==='packed'&&o.delivery==='pickup')return true;
    return await upd(doc('orders/'+o.id),{stage:'packed',stageAt:Date.now(),builtAt:o.builtAt||Date.now(),builtBy:o.builtBy||o.builderId||null,delivery:'pickup',address:'',courierCity:null,deliveryDate:'',deliverySlot:'',history:hist(o,'Готов — ждёт клиента, самовывоз')})}},
  {id:'cheaper-2026-11-23',writes:[
