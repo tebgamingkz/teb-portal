@@ -610,7 +610,7 @@ const shipPill=o=>{const x=dtOf(o.dtype);return x?`<span class="pill ${x.hot?'ac
 const SLOTS=['10:00–13:00','13:00–16:00','16:00–19:00','19:00–22:00'];
 const TIME_CITIES=['Алматы','Астана','Караганда'];
 const UP_GROUPS=['Видеокарта','Память','Накопители','Процессор и охлаждение','Монитор','Периферия','Прочее'];
-const UP_EXCL=['Видеокарта','Процессор и охлаждение','Монитор','Периферия'];
+const UP_EXCL=['Видеокарта','Периферия'];
 const upFits=(u,k)=>!k||((!u.family||u.family===k.family)&&(!u.requires||(k.specs||[]).some(r=>r[0]===u.requires)));
 const upSign=p=>p<0?`−${mln(-p)}`:`+${mln(p)}`;
 function upGroupsHtml(sel,attr,kit){
