@@ -1294,7 +1294,7 @@ const SETUP_TIPS={bios:'Скачать последний BIOS с сайта п�
 function btrack(o,big){const i=BTRACK.findIndex(([s])=>s===o.stage);const cur=o.stage==='queue'?-1:(['shipped','delivered','packed'].includes(o.stage)?5:i);
   return `<div class="btrack ${big?'big':''}">${BTRACK.map(([s,t],n)=>`<div class="bt ${n<cur?'done':n===cur?'on':''}"><i>${n<cur?'✓':n+1}</i>${big?`<span>${t}</span>`:''}</div>`).join('')}</div>`}
 function buildPanel(o,canBuild){
-  if(o.stage==='queue')return `<div class="bpanel"><div class="eyebrow">Этапы сборки</div>${btrack(o,true)}<div class="small muted">${o.builderId?`Назначен: <b>${esc(nameOf(o.builderId))}</b>. Нажмите «Начал сборку», когда приступите.`:'Ждёт, пока старший сборщик назначит.'}</div></div>`;
+  if(o.stage==='queue')return `<div class="bpanel"><div class="eyebrow">Этапы сборки</div>${btrack(o,true)}<div class="small muted">${o.builderId?`Назначен: <b>${esc(nameOf(o.builderId))}</b>. Нажмите «Начал сборку», когда приступите.`:'Ждёт, пока старший сборщик назначит.'}</div>${canBuild&&o.builderId?`<button class="btn ${S.f.qd===o.id?'good':''} block" style="min-height:46px" data-act="quickDone" data-id="${esc(o.id)}">${S.f.qd===o.id?'Точно готово? Нажмите ещё раз':'✓ Готово — собран, настроен, упакован'}</button>`:''}</div>`;
   if(!IN_BUILD.includes(o.stage))return o.builtAt?`<div class="bpanel done"><div class="eyebrow">Этапы сборки</div>${btrack(o,true)}<div class="small">Выполнено ${fmtDT(o.builtAt)} · ${esc(nameOf(o.builtBy||o.builderId))}</div></div>`:'';
   const P=stageProgress(o);const [,,desc]=STAGE_LIST[o.stage];const ti=BTRACK.findIndex(([s])=>s===o.stage);const next=BTRACK[ti+1];
   const media=(o.media||[]).length;const ok=P.done>=P.need;
@@ -1308,6 +1308,7 @@ function buildPanel(o,canBuild){
    </div>
    ${o.stage==='pack'?`<div class="hint">📦 ${esc([o.client,o.phone].filter(Boolean).join(' · '))}<br>${esc(deliveryLine(o))} → ${esc([o.city,o.address].filter(Boolean).join(', '))}</div>`:''}
    ${canBuild?`<button class="btn ${ok?'good':'primary'} block bnext" style="min-height:54px" data-act="nextStage" data-id="${esc(o.id)}" ${ok?'':'disabled'}>${ok?(next[0]==='packed'?'Выполнено ✓':'Готово → '+next[1]):`Осталось отметить: ${P.need-P.done}`}</button>`:''}
+   ${canBuild&&o.builderId?`<button class="btn ${S.f.qd===o.id?'good':''} block" style="min-height:46px" data-act="quickDone" data-id="${esc(o.id)}">${S.f.qd===o.id?'Точно готово? Нажмите ещё раз':'✓ Готово — собран, настроен, упакован'}</button>`:''}
    </div></div>`;
 }
 
@@ -2286,6 +2287,10 @@ ACT.nextStage=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;const
   if(await upd(doc('orders/'+o.id),{stage:nx[0],stageAt:Date.now(),history:hist(o,nx[1])}))toast(nx[1])};
 ACT.chkAll=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;const P=stageProgress(o);if(!P||P.field!==d.f)return;const cur=o[d.f]||{};const all=P.items.every(([k])=>cur[k]);
   const v={};if(!all)P.items.forEach(([k])=>v[k]=true);o[d.f]=v;schedulePaint();await upd(doc('orders/'+o.id),{[d.f]:v})};
+ACT.quickDone=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(S.f.qd!==o.id){S.f.qd=o.id;clearTimeout(ACT._qdT);ACT._qdT=setTimeout(()=>{S.f.qd=null;schedulePaint()},5000);return schedulePaint()}
+  S.f.qd=null;if(o.stage==='queue'&&!o.builderId)return toast('Сначала назначьте сборщика');
+  const k=kitOf(o.kitId);if(k&&!o.stockDeducted&&(k.items||[]).length){for(const it of k.items){const st=S.stock.find(x=>x.id===it.sku);if(st)await upd(doc('stock/'+st.id),{qty:(+st.qty||0)-(+it.qty||1)})}await upd(doc('orders/'+o.id),{stockDeducted:true});o.stockDeducted=true}
+  await ACT.packed(d)};
 ACT.bWho=d=>{S.f.bWho=d.v;paint()};
 ACT.incFault=async d=>{const i=S.incidents.find(x=>x.id===d.id);if(!i)return;if(await upd(doc('incidents/'+i.id),{fault:d.v||null}))toast(d.v&&d.v!=='none'?'Брак записан на '+nameOf(d.v):'Сохранено')};
 ACT.packed=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;
