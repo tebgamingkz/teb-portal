@@ -604,11 +604,13 @@ const shipPill=o=>{const x=dtOf(o.dtype);return x?`<span class="pill ${x.hot?'ac
 const SLOTS=['10:00–13:00','13:00–16:00','16:00–19:00','19:00–22:00'];
 const TIME_CITIES=['Алматы','Астана','Караганда'];
 const UP_GROUPS=['Видеокарта','Память','Накопители','Процессор и охлаждение','Монитор','Периферия','Прочее'];
-const UP_EXCL=['Видеокарта','Процессор и охлаждение','Монитор'];
-function upGroupsHtml(sel,attr){
-  const groups=UP_GROUPS.map(g=>[g,S.upgrades.filter(u=>(u.group||'Прочее')===g)]).filter(x=>x[1].length);
+const UP_EXCL=['Видеокарта','Процессор и охлаждение','Монитор','Периферия'];
+const upFits=(u,k)=>!k||((!u.family||u.family===k.family)&&(!u.requires||(k.specs||[]).some(r=>r[0]===u.requires)));
+const upSign=p=>p<0?`−${mln(-p)}`:`+${mln(p)}`;
+function upGroupsHtml(sel,attr,kit){
+  const groups=UP_GROUPS.map(g=>[g,S.upgrades.filter(u=>(u.group||'Прочее')===g&&(upFits(u,kit)||sel.includes(u.id))).sort((a,b)=>(+a.order||0)-(+b.order||0))]).filter(x=>x[1].length);
   if(!groups.length)return '<span class="muted small">Админ добавляет апгрейды на «Складе»</span>';
-  return `<div style="display:flex;flex-direction:column;gap:10px">${groups.map(([g,us])=>`<div style="display:flex;flex-direction:column;gap:6px"><div class="eyebrow">${esc(g)}${UP_EXCL.includes(g)?' · один вариант':''}</div><div class="checks">${us.map(u=>`<label class="check"><input type="checkbox" ${attr} data-group="${esc(g)}" value="${esc(u.id)}" ${sel.includes(u.id)?'checked':''}>${esc(u.name)}${u.price!=null?` <span class="muted num">+${mln(u.price)}</span>`:''}${u.hot?' <span class="pill accent">часто</span>':''}</label>`).join('')}</div></div>`).join('')}</div>`;
+  return `<div style="display:flex;flex-direction:column;gap:10px">${groups.map(([g,us])=>`<div style="display:flex;flex-direction:column;gap:6px"><div class="eyebrow">${esc(g)}${UP_EXCL.includes(g)?' · один вариант':''}</div><div class="checks">${us.map(u=>`<label class="check"><input type="checkbox" ${attr} data-group="${esc(g)}" value="${esc(u.id)}" ${sel.includes(u.id)?'checked':''}>${esc(u.name)}${u.price!=null?` <span class="muted num" ${+u.price<0?'style="color:var(--good)"':''}>${upSign(+u.price)}</span>`:''}${u.hot?' <span class="pill accent">часто</span>':''}</label>`).join('')}</div></div>`).join('')}</div>`;
 }
 const deliveryLine=o=>{if(o.delivery==='pickup')return 'Самовывоз';const sh=dtOf(o.dtype);const parts=[sh?sh.t:(DELIV[o.delivery]||'Доставка')];if(o.deliveryDate)parts.push(fmtDay(o.deliveryDate)+(o.deliverySlot?' '+o.deliverySlot:''));if(o.deliveryFee)parts.push('доставка '+money(o.deliveryFee));return parts.join(' · ')};
 const LEAD_ST=[{id:'new',t:'Новый'},{id:'talk',t:'В диалоге'},{id:'think',t:'Думает'},{id:'visit',t:'Приедет'},{id:'prepay',t:'Предоплата'},{id:'won',t:'Купил'},{id:'lost',t:'Отказ'}];
@@ -705,6 +707,12 @@ async function boot(){
   const timer=setTimeout(()=>{if(!S.ready){S.ready=true;S.slow=true;paint()}},10000);
   /* one-time data updates shipped with the site, applied once by the first admin who opens it */
 const DATA_PATCHES=[
+ {id:'cheaper-2026-11-23',writes:[
+  ['upgrades/dn-5050',{group:'Видеокарта',name:'RTX 5050',order:1,price:-45000,priceInst:null,family:'Бегамот'}],
+  ['upgrades/dn-3070',{group:'Видеокарта',name:'RTX 3070',order:1.2,price:-60000,priceInst:null,family:'Бегамот'}],
+  ['upgrades/dn-3060',{group:'Видеокарта',name:'RTX 3060',order:1.4,price:-70000,priceInst:null,family:'Бегамот'}],
+  ['upgrades/dn-sanc200',{group:'Монитор',name:'Монитор SANC 200 Гц',order:1,price:-12000,priceInst:null,family:'Бегамот',requires:'Монитор'}],
+  ['upgrades/dn-noperi',{group:'Периферия',name:'Без периферии',order:1,price:-30000,priceInst:null,family:'Бегамот',requires:'Клавиатура'}]]},
  {id:'gpu-2026-11-23',writes:[
   ['upgrades/up-5060ti',{group:'Видеокарта',name:'RTX 5060 Ti 8 ГБ',order:3,price:50000,priceInst:null}],
   ['upgrades/up-5060ti16',{group:'Видеокарта',name:'RTX 5060 Ti 16 ГБ',order:3.5,price:200000,priceInst:null}],
@@ -714,7 +722,7 @@ const DATA_PATCHES=[
 ];
 let patchBusy=false;
 async function runPatches(){if(patchBusy||!S.isAdmin||!Array.isArray(S.patchesDone))return;const todo=DATA_PATCHES.filter(p=>!S.patchesDone.includes(p.id));if(!todo.length)return;patchBusy=true;
-  try{for(const p of todo){for(const [path,data] of p.writes)await doc(path).set(data);S.patchesDone=[...S.patchesDone,p.id];await doc('config/patches').set({done:S.patchesDone,at:Date.now()});toast('Обновлено: '+(p.id.startsWith('gpu')?'цены видеокарт':p.id))}}catch(e){console.warn('patch',e)}patchBusy=false}
+  try{for(const p of todo){for(const [path,data] of p.writes)await doc(path).set(data);S.patchesDone=[...S.patchesDone,p.id];await doc('config/patches').set({done:S.patchesDone,at:Date.now()});toast('Обновлено: '+({gpu:'цены видеокарт',cheaper:'варианты «дешевле» для Бегамота'}[p.id.split('-')[0]]||p.id))}}catch(e){console.warn('patch',e)}patchBusy=false}
   const done=name=>{S.loaded.add(name);if(!S.ready&&['team','orders'].every(n=>S.loaded.has(n))){S.ready=true;clearTimeout(timer)}schedulePaint()};
   const subCol=(name,q,map)=>q.onSnapshot(snap=>{map(snap.docs.map(d=>({id:d.id,...d.data()})));if(!snap.metadata.fromCache)done(name);else schedulePaint()},e=>{done(name)});
   subCol('team',col('team'),a=>S.team=a.sort((x,y)=>(x.name||'').localeCompare(y.name||'','ru')));
@@ -1025,7 +1033,7 @@ VIEW.calc=()=>{
   <select class="inp" id="calcKit" data-calc="kit" aria-label="Другие комплекты с сайта"><option value="">Другие комплекты с сайта…</option>${ks.filter(x=>!x.family).map(x=>opt(x.id,x.name+(x.price!=null?' · '+mln(x.price):''),fam?'':S.calc.kitId)).join('')}</select>
 
   <div class="step"><span class="step-n">2</span><h3>Улучшения</h3>${ups.length?`<span class="spacer"></span><button class="btn sm" data-act="clearUps">Сбросить</button>`:''}</div>
-  ${upGroupsHtml(S.calc.ups,'data-calc="up"')}
+  ${upGroupsHtml(S.calc.ups,'data-calc="up"',kitOf(S.calc.kitId))}
   ${k&&!k.custom?`<div style="display:flex;flex-direction:column;gap:6px"><div class="eyebrow">Своя периферия · по желанию клиента</div>
    <div class="grid2"><input class="inp" id="perT" data-cc="perText" value="${esc(S.calc.perText||'')}" placeholder="например: Logitech G Pro + HyperX Cloud III"><input class="inp num" id="perP" data-cc="perPrice" inputmode="numeric" value="${S.calc.perPrice||''}" placeholder="доплата нал, ₸"></div></div>`:''}
 
@@ -1101,10 +1109,12 @@ function specLines(k,ups){
       if(a==='Корпус'&&S.calc._case)v=S.calc._case;
       if(a==='Видеокарта'&&/rtx|gtx/.test(n))v=u.name;
       if(a==='Процессор'&&/ryzen|intel|i5|i7/.test(n))v=u.name;
-      if(a==='Охлаждение'&&n.includes('вод'))v=u.name;}
+      if(a==='Охлаждение'&&n.includes('вод'))v=u.name;
+      if(a==='Монитор'&&(n.startsWith('монитор')||n.includes('sanc')))v=u.name.replace(/^Монитор\s*/i,'');}
     return [a,v,v!==b]});
   const extra=ups.filter(u=>/hdd|наушник|жёстк|жестк/i.test(u.name)).map(u=>['Дополнительно',u.name,true]);
-  return [...sp,...extra];
+  const noPeri=ups.some(u=>/без периферии/i.test(u.name));
+  return [...sp,...extra].filter(r=>!noPeri||!['Клавиатура','Мышь','Наушники','Коврик','Подарок','Периферия'].includes(r[0]));
 }
 function clientText(k,ups){return S.calc.full?clientFull(k,ups):clientShort(k,ups)}
 function clientShort(k,ups){
@@ -1995,7 +2005,7 @@ function recalcOrderForm(f,src){
   const am=f.querySelector('[name="amount"]');
   if(f.dataset.manual!=='1'&&!c.custom&&c.base!=null)am.value=c.total||'';
   const k=kitOf(r.kitId);
-  const parts=[];if(k&&c.base!=null)parts.push(`${k.name} ${nfmt(c.base)}`);c.upPrices.forEach(([u,p])=>{if(p!=null)parts.push(`${u.name} +${nfmt(p)}`)});
+  const parts=[];if(k&&c.base!=null)parts.push(`${k.name} ${nfmt(c.base)}`);c.upPrices.forEach(([u,p])=>{if(p!=null)parts.push(`${u.name} ${p<0?'−'+nfmt(-p):'+'+nfmt(p)}`)});
   let txt=parts.length?`Наличные: ${parts.join(' + ')}${parts.length>1?' = '+nfmt(c.cash):''}`:'';
   if(txt&&PRICE_DIV[r.payType])txt+=` → ${r.payType==='halyk'?'Halyk ÷ 0,77':(k?.priceKaspi?'цена Kaspi по каталогу':'Kaspi ÷ 0,85')} = <b>${nfmt(c.total)}</b>`;
   if(txt&&r.payType==='cash'&&r.discount)txt+=` → скидка 2% = <b>${nfmt(c.total)}</b>`;
