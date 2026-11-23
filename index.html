@@ -1418,7 +1418,7 @@ VIEW.inc=()=>{
   <div class="chips">${Object.entries(sets).map(([k,[t,fn]])=>`<button class="chip" data-act="fInc" data-v="${k}" aria-pressed="${f===k}">${t}<span class="n">${S.incidents.filter(fn).length}</span></button>`).join('')}</div>
   <div class="list">${list.length?list.map(i=>{const s=INC_ST[i.status]||INC_ST.open;const sv=SEV[i.severity]||SEV.mid;const o=S.orders.find(x=>x.id===i.orderId);
     return `<button class="row" data-act="openInc" data-id="${esc(i.id)}"><div class="main"><div class="t1">${esc(i.title)}<span class="pill ${s[1]}">${s[0]}</span>${i.severity==='high'?`<span class="pill bad">${sv[0]}</span>`:''}</div>
-    <div class="t2">${esc([o?'Заказ №'+o.num:'',nameOf(i.createdBy),(i.participants||[]).length+' участн.'].filter(Boolean).join(' · '))}</div></div>
+    <div class="t2">${esc([i.city,i.pc,i.bought?'брал '+fmtDay(i.bought):'',o?'№'+o.num:'',nameOf(i.createdBy)].filter(Boolean).join(' · '))}</div></div>
     <div class="side">${ago(i.lastAt||i.createdAt)}</div></button>`}).join(''):'<div class="empty">Инцидентов нет.</div>'}</div>`;
 };
 
@@ -2058,20 +2058,28 @@ SHEET.newIncident=arg=>{
   <form class="form" data-form="incident">
    <div class="field"><label for="if-t">Что случилось</label><input class="inp" id="if-t" name="title" required autofocus placeholder="Не стартует ПК после сборки"></div>
    <div class="grid2">
-    <div class="field"><label for="if-o">Заказ</label><select class="inp" id="if-o" name="orderId"><option value="">— без заказа —</option>${act.map(o=>opt(o.id,'№'+o.num+' · '+(o.product||'')+((o.builtBy||o.builderId)?' · собирал '+nameOf(o.builtBy||o.builderId):''),arg?.orderId)).join('')}</select></div>
+    <div class="field"><label for="if-o">Заказ</label><select class="inp" id="if-o" name="orderId" onchange="incFill(this)"><option value="">— без заказа —</option>${act.map(o=>opt(o.id,'№'+o.num+' · '+(o.product||'')+((o.builtBy||o.builderId)?' · собирал '+nameOf(o.builtBy||o.builderId):''),arg?.orderId)).join('')}</select></div>
     <div class="field"><label for="if-s">Важность</label><select class="inp" id="if-s" name="severity">${Object.entries(SEV).map(([v,[t]])=>opt(v,t,'mid')).join('')}</select></div>
    </div>
+   ${(()=>{const o0=S.orders.find(x=>x.id===arg?.orderId);return `<div class="grid2">
+    <div class="field"><label for="if-c">Город</label><input class="inp" id="if-c" name="city" required list="incCities" placeholder="Алматы" value="${esc(o0?.city||'')}"><datalist id="incCities">${['Алматы','Астана','Караганда','Шымкент',...new Set(S.orders.map(o=>o.city).filter(Boolean))].filter((v,i,a)=>a.indexOf(v)===i).map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
+    <div class="field"><label for="if-b">Когда брал</label><input class="inp" type="date" id="if-b" name="bought" required value="${o0?dayKey(o0.createdAt||Date.now()):''}"></div></div>
+   <div class="field"><label for="if-pc">Какой компьютер</label><input class="inp" id="if-pc" name="pc" required placeholder="Бегамот SETUP, WaterCube Black" value="${esc(o0?[o0.product,o0.caseModel].filter(Boolean).join(', '):'')}"></div>`})()}
    <div class="field"><label>Причина</label><div class="checks"><label class="check"><input type="radio" name="fault" value="builder">Ошибка сборщика</label><label class="check"><input type="radio" name="fault" value="none">Не сборщик (клиент, доставка, брак детали)</label><label class="check"><input type="radio" name="fault" value="" checked>Выясняем</label></div>
     <span class="muted small" id="if-who">Ошибка сборщика запишется на того, кто собирал выбранный заказ, и пойдёт в его процент брака.</span></div>
    <div class="field"><label for="if-d">Подробности</label><textarea class="inp" id="if-d" name="text" placeholder="Что видим, что уже пробовали"></textarea></div>
    <button class="btn primary" type="submit">Создать и позвать сборщиков</button>
   </form>`;
 };
+function incFill(sel){const f=sel.closest('form');const o=S.orders.find(x=>x.id===sel.value);if(!o||!f)return;const set=(n,v)=>{const el=f.querySelector(`[name="${n}"]`);if(el&&v)el.value=v};
+  set('city',o.city);set('bought',dayKey(o.createdAt||Date.now()));set('pc',[o.product,o.caseModel].filter(Boolean).join(', '))}
+window.incFill=incFill;
 SHEET.incident=id=>{
   const i=S.incidents.find(x=>x.id===id);if(!i)return null;const me=whoId();
   const o=S.orders.find(x=>x.id===i.orderId);
   return `${head(esc(i.title),`${(SEV[i.severity]||SEV.mid)[0]} · ${esc(nameOf(i.createdBy))} · ${fmtDT(i.createdAt)}`)}
   <div class="chips">${Object.entries(INC_ST).map(([v,[t]])=>`<button class="chip" data-act="incStatus" data-id="${esc(i.id)}" data-v="${v}" aria-pressed="${(i.status||'open')===v}">${t}</button>`).join('')}</div>
+  ${i.city||i.pc||i.bought?`<dl class="kv"><dt>Город</dt><dd>${esc(i.city||'—')}</dd><dt>Компьютер</dt><dd>${esc(i.pc||'—')}</dd><dt>Когда брал</dt><dd>${i.bought?fmtDay(i.bought)+' · '+(()=>{const d=Math.round((Date.now()-new Date(i.bought+'T12:00:00').getTime())/864e5);return d<1?'сегодня':d+' дн. назад'})():'—'}</dd></dl>`:''}
   ${o?`<button class="btn sm" data-act="openOrder" data-id="${esc(o.id)}" style="align-self:flex-start">Заказ №${esc(o.num)} · ${esc(stage(o).t)}</button>`:''}
   ${isLead()||S.isAdmin?`<div class="field"><label>Чья вина</label><div class="chips"><button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="" aria-pressed="${!i.fault}">выясняем</button><button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="none" aria-pressed="${i.fault==='none'}">не сборщик</button>${builders().map(b=>`<button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="${esc(b.id)}" aria-pressed="${i.fault===b.id}">${esc(b.name)}</button>`).join('')}</div></div>`:i.fault&&i.fault!=='none'?`<div class="small"><span class="pill bad">по вине: ${esc(nameOf(i.fault))}</span></div>`:''}
   <div class="small muted">Участники: ${esc((i.participants||[]).map(nameOf).join(', '))}</div>
@@ -2378,8 +2386,9 @@ FORM.lead=async(fd,f)=>{const id=f.dataset.id;const now=Date.now();
 FORM.incident=async fd=>{const now=Date.now();const me=whoId();
   const parts=[...new Set([me,...builders().map(b=>b.id)])];
   const ref=col('incidents').doc();
-  const data={title:(fd.get('title')||'').trim(),orderId:fd.get('orderId')||'',severity:fd.get('severity'),fault:(()=>{const f=fd.get('fault');if(f!=='builder')return f||null;const oo=S.orders.find(x=>x.id===fd.get('orderId'));return oo?(oo.builtBy||oo.builderId||null):null})(),status:'open',createdAt:now,lastAt:now,createdBy:me,participants:parts};
+  const data={title:(fd.get('title')||'').trim(),orderId:fd.get('orderId')||'',severity:fd.get('severity'),fault:(()=>{const f=fd.get('fault');if(f!=='builder')return f||null;const oo=S.orders.find(x=>x.id===fd.get('orderId'));return oo?(oo.builtBy||oo.builderId||null):null})(),status:'open',city:(fd.get('city')||'').trim(),pc:(fd.get('pc')||'').trim(),bought:fd.get('bought')||'',createdAt:now,lastAt:now,createdBy:me,participants:parts};
   if(!data.title)return;
+  if(!data.city||!data.pc||!data.bought)return toast('Укажите город, компьютер и когда брал');
   if(fd.get('fault')==='builder'&&!data.fault)return toast('Выберите заказ, у которого назначен сборщик');
   if(await put(ref,data)){
     const text=(fd.get('text')||'').trim();if(text)await col('incidents/'+ref.id+'/msgs').add({at:now,by:me,text}).catch(()=>{});
