@@ -1176,7 +1176,29 @@ function orderText(o){
   L.push('','📹 Перед отправкой пришлём фото и видео вашей сборки.','Спасибо, что выбрали TEB GAMING! 🙌');
   return L.join('\n');
 }
-async function copyText(t){try{await navigator.clipboard.writeText(t);toast('Скопировано — вставьте клиенту в WhatsApp')}catch(e){openSheet('copy',t)}}
+async function copyText(t,msg){try{await navigator.clipboard.writeText(t);toast(msg||'Скопировано — вставьте клиенту в WhatsApp')}catch(e){openSheet('copy',t)}}
+/* карточка заказа для Telegram-чата заказов — в привычном формате */
+function chatText(o){
+  const k=kitOf(o.kitId);const ups=(o.upgrades||[]).map(upOf).filter(Boolean);
+  const L=[`Номер заказа: ${o.num}`,`📦 Товар - ${o.product||k?.name||''}`];
+  if(o.caseModel)L.push(`📦 Корпус - ${o.caseModel}`);
+  L.push('',`👥 ${[o.client,o.phone].filter(Boolean).join(' ')||'—'}${o.kaspiNum?`  | Kaspi ${o.kaspiNum}`:''}`);
+  L.push(`🏙️ Адрес: ${o.delivery==='pickup'?'Самовывоз, '+(o.city||'Алматы'):[o.city,o.address].filter(Boolean).join(', ')}${dtOf(o.dtype)?' | '+dtOf(o.dtype).s:''}`);
+  let pay=`${PAY[o.payType]||''} ${nfmt(o.amount)}`;
+  if(o.payType==='mixed'&&o.mixCash)pay+=` (${nfmt(o.mixCash)} нал + ${nfmt(o.amount-o.mixCash)} ${viaName(o.mixVia)})`;
+  if(o.paid==='partial')pay+=` (предоплата ${nfmt(o.prepaid)}, остаток ${nfmt(dueOf(o))})`;
+  else if(isCOD(o))pay+=' — оплата при получении';else if(o.paid==='paid')pay+=' — оплачено';
+  L.push('',`💰Оплата - ${pay}`);
+  if(o.deliveryFee&&o.delivery!=='pickup')L.push(`🚚 Доставка - ${nfmt(o.deliveryFee)}`);
+  L.push(`⌛Время для доставки - ${o.deliveryDate?fmtDay(o.deliveryDate)+(o.deliverySlot?', '+o.deliverySlot:''):o.delivery==='pickup'?'самовывоз':'уточнить'}${o.delivery==='install'?' · доставка + подключение':''}`);
+  L.push('');
+  const gifts=[...(o.gifts||[])];if(gifts.length)L.push(`👽 Примечание - подарок: ${gifts.join(', ')}`);
+  for(const u of ups)if(!/дешевле/i.test(u.name))L.push(`👽 Примечание - ${u.name}`);
+  for(const n of (o.notes||[]))if(n.t)L.push(`👽 Примечание - ${n.t}`);
+  if(o.urgent)L.push('👽 Примечание - СРОЧНО');
+  if(o.soldBy)L.push(`👽 Продал - ${nameOf(o.soldBy)}`);
+  return L.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
 
 const NOTE_TAGS=['Думает','Рассрочка','Предоплата','Приедет в шоурум','Перезвонить','Не ответил'];
 function quickTimes(){const d=new Date();const at=(h,m,add)=>{const x=new Date();x.setDate(x.getDate()+(add||0));x.setHours(h,m,0,0);return x.getTime()};
@@ -1792,7 +1814,7 @@ SHEET.order=id=>{
   if(o.stage==='shipped'&&canManage&&!o.courierCity)actions+=`<button class="btn good" data-act="delivered" data-id="${esc(o.id)}">Доставлен</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn" data-act="editOrder" data-id="${esc(o.id)}">Изменить</button>`;
   if(canManage||S.isAdmin)actions+=`<button class="btn" data-act="warrantyPdf" data-id="${esc(o.id)}">📄 Скачать гарантию</button>`;
-  if(canManage)actions+=`<button class="btn" data-act="copyOrder" data-id="${esc(o.id)}">Скопировать заказ клиенту</button>`;
+  if(canManage)actions+=`<button class="btn" data-act="copyChat" data-id="${esc(o.id)}">📋 Для чата заказов</button><button class="btn" data-act="copyOrder" data-id="${esc(o.id)}">Скопировать заказ клиенту</button>`;
   actions+=`<button class="btn" data-act="incFromOrder" data-id="${esc(o.id)}">Инцидент</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn danger" data-act="cancelOrder" data-id="${esc(o.id)}">Отменить</button>`;
   const mg=S.margins[o.id];const sugg=suggestMargin(o);
@@ -2144,6 +2166,11 @@ SHEET.kit=id=>{const k=id?S.kits.find(x=>x.id===id):{items:[]};if(id&&!k)return 
    <div class="list">${S.stock.map(s=>{const it=items.find(i=>i.sku===s.id);return `<label class="row" style="cursor:pointer"><input type="checkbox" name="sku" value="${esc(s.id)}" ${it?'checked':''}><div class="main"><div class="t1">${esc(s.name)}</div><div class="t2">${esc(s.cat||'')}</div></div><input class="inp num" style="width:70px;min-height:36px" name="q_${esc(s.id)}" inputmode="numeric" value="${it?it.qty:1}" aria-label="Количество"></label>`}).join('')||'<div class="empty">Сначала добавьте позиции на склад.</div>'}</div>
    <div class="btns"><button class="btn primary" type="submit" style="flex:1">Сохранить</button>${id?`<button class="btn danger" type="button" data-act="delKit" data-id="${esc(id)}">Удалить</button>`:''}</div></form>`};
 
+SHEET.created=id=>{const o=S.orders.find(x=>x.id===id)||(S.lastCreated?.id===id?S.lastCreated:null);if(!o)return `${head('Заказ создан')}<div class="muted">Заказ сохранён.</div>`;
+  return `${head('Заказ №'+esc(o.num)+' создан ✅','Скопируйте карточку и вставьте в чат заказов')}
+  <pre class="inp" style="white-space:pre-wrap;font:inherit;font-size:14px;line-height:1.5;min-height:0;max-height:46vh;overflow:auto">${esc(chatText(o))}</pre>
+  <button class="btn primary block" style="min-height:52px" data-act="copyChat" data-id="${esc(o.id)}">📋 Скопировать для чата</button>
+  <div class="btns"><button class="btn" data-act="copyOrder" data-id="${esc(o.id)}">Скопировать клиенту</button><button class="btn" data-act="openOrder" data-id="${esc(o.id)}">Открыть заказ</button></div>`};
 SHEET.copy=t=>`${head('Текст для клиента','Буфер обмена недоступен — выделите текст и скопируйте')}<div class="wa"><div class="bubble">${waHtml(t)}</div></div><textarea class="inp" id="copyTxt" rows="14" readonly style="min-height:260px">${esc(t)}</textarea>`;
 SHEET.up=id=>{const u=id?S.upgrades.find(x=>x.id===id):{};if(id&&!u)return null;
   return `${head(id?esc(u.name):'Новый апгрейд','Доплата клиента прибавляется к цене заказа сама')}<form class="form" data-form="up" data-id="${esc(id||'')}">
@@ -2294,7 +2321,8 @@ ACT.textMode=d=>{S.calc.full=d.v==='full';paint()};
 ACT.copyLink=d=>{const k=kitOf(d.k);const l=linksOf(k)[+d.i];if(l)copyText(linkMsg(k,l))};
 ACT.copyLinkRaw=d=>{const k=kitOf(d.k);const l=linksOf(k)[+d.i];if(l)copyText(l.url)};
 ACT.applyLink=d=>{S.calc.kitId=d.k;S.calc.ups=d.u?d.u.split(','):[];paint()};
-ACT.copyOrder=d=>{const o=S.orders.find(x=>x.id===d.id);if(o)copyText(orderText(o))};
+ACT.copyOrder=d=>{const o=S.orders.find(x=>x.id===d.id)||(S.lastCreated?.id===d.id?S.lastCreated:null);if(o)copyText(orderText(o))};
+ACT.copyChat=d=>{const o=S.orders.find(x=>x.id===d.id)||(S.lastCreated?.id===d.id?S.lastCreated:null);if(o)copyText(chatText(o),'Скопировано — вставьте в чат заказов')};
 ACT.recalc=(d,el)=>{const f=el.closest('form');f.dataset.manual='';recalcOrderForm(f)};
 ACT.editUp=d=>openSheet('up',d.id||null);
 ACT.delUp=async(d,el)=>{if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Точно удалить?';return}try{await doc('upgrades/'+d.id).delete();closeSheet()}catch(e){toast(errText(e))}};
@@ -2378,7 +2406,7 @@ FORM.order=async(fd,f)=>{
     if(prefill?.leadId)await upd(doc('leads/'+prefill.leadId),{stage:'won',updatedAt:now});
     if(prefill?.noteId)await upd(doc('notes/'+prefill.noteId),{status:'done',tag:'Купил',updatedAt:now});
     sysChat(`Новый заказ №${data.num}: ${data.product||kitOf(data.kitId)?.name||''}${data.urgent?' · СРОЧНО':''}`);
-    closeSheet();toast('Заказ добавлен в очередь сборки')}
+    toast('Заказ добавлен в очередь сборки');S.lastCreated={...full,id:ref.id};openSheet('created',ref.id)}
 };
 FORM.noteAdd=async(fd,f)=>{const now=Date.now();const phone=(fd.get('phone')||'').trim();if(!phone)return toast('Впишите номер');
   const data={phone,name:(fd.get('name')||'').trim(),text:(fd.get('text')||'').trim(),tag:fd.get('tag')||'',remindAt:fromLocalInput(fd.get('remindAt')),status:'open',createdBy:whoId(),createdAt:now,updatedAt:now};
