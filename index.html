@@ -628,6 +628,9 @@ const CITIES=['Алматы','Караганда'];
 const EXP_CATS=['Зарплата','Бонус','Kaspi-маркетинг','Аренда','Доставка','Закупка','Прочее'];
 const SEV={low:['Низкая',''],mid:['Средняя','warn'],high:['Критично','bad']};
 const INC_ST={open:['Открыт','bad'],work:['В работе','warn'],done:['Решён','good']};
+const INC_KIND={problem:['Проблема',''],replace:['Замена по браку','warn'],refund:['Возврат','bad']};
+const REPL_ST={wait:['Ждём замену','warn'],sent:['Отправили','accent'],done:['Заменено','good']};
+const isRepl=i=>i.kind==='replace'||i.kind==='refund';
 const SHIP={kaspi:'Kaspi Доставка',indrive:'InDrive',pickup:'Самовывоз',courier:'Наш курьер'};
 const WEEK=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
 const TAB_T={dash:'Сводка',orders:'Заказы',notes:'Заметки',calc:'Калькулятор',mchat:'Чат менеджеров',pay:'Зарплата',bpay:'Зарплата',crm:'CRM',build:'Сборка',inc:'Инциденты',chat:'Чат сборки',courier:'Доставки',stock:'Склад',money:'Финансы',team:'Команда',sched:'График'};
@@ -1456,12 +1459,12 @@ VIEW.bpay=()=>{
 };
 
 VIEW.inc=()=>{
-  const f=S.f.inc;const sets={open:['Открытые',i=>i.status!=='done'],done:['Решённые',i=>i.status==='done'],all:['Все',()=>true]};
+  const f=S.f.inc;const sets={open:['Открытые',i=>i.status!=='done'&&!isRepl(i)],repl:['Замены и возвраты',i=>isRepl(i)&&i.replStatus!=='done'&&i.status!=='done'],done:['Решённые',i=>i.status==='done'||(isRepl(i)&&i.replStatus==='done')],all:['Все',()=>true]};
   const list=S.incidents.filter(sets[f][1]);
-  return `<div class="section-h"><h2>Инциденты</h2></div>
+  return `<div class="section-h"><h2>Инциденты</h2><span class="spacer"></span><button class="btn sm" data-act="newIncident" data-v="replace">+ Замена / возврат</button></div>
   <div class="chips">${Object.entries(sets).map(([k,[t,fn]])=>`<button class="chip" data-act="fInc" data-v="${k}" aria-pressed="${f===k}">${t}<span class="n">${S.incidents.filter(fn).length}</span></button>`).join('')}</div>
   <div class="list">${list.length?list.map(i=>{const s=INC_ST[i.status]||INC_ST.open;const sv=SEV[i.severity]||SEV.mid;const o=S.orders.find(x=>x.id===i.orderId);
-    return `<button class="row" data-act="openInc" data-id="${esc(i.id)}"><div class="main"><div class="t1">${esc(i.title)}<span class="pill ${s[1]}">${s[0]}</span>${i.severity==='high'?`<span class="pill bad">${sv[0]}</span>`:''}</div>
+    return `<button class="row" data-act="openInc" data-id="${esc(i.id)}"><div class="main"><div class="t1">${esc(i.title)}${isRepl(i)?`<span class="pill ${INC_KIND[i.kind][1]}">${INC_KIND[i.kind][0]}${i.item?': '+esc(i.item):''}</span><span class="pill ${(REPL_ST[i.replStatus]||REPL_ST.wait)[1]}">${(REPL_ST[i.replStatus]||REPL_ST.wait)[0]}</span>`:`<span class="pill ${s[1]}">${s[0]}</span>`}${i.severity==='high'?`<span class="pill bad">${sv[0]}</span>`:''}</div>
     <div class="t2">${esc([i.city,i.pc,i.bought?'брал '+fmtDay(i.bought):'',o?'№'+o.num:(i.orderNum?'№'+i.orderNum:''),nameOf(i.createdBy)].filter(Boolean).join(' · '))}</div></div>
     <div class="side">${ago(i.lastAt||i.createdAt)}</div></button>`}).join(''):'<div class="empty">Инцидентов нет.</div>'}</div>`;
 };
@@ -2101,6 +2104,8 @@ SHEET.newIncident=arg=>{
   const act=S.orders.filter(o=>o.stage!=='cancelled').sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).slice(0,150);
   return `${head('Новый инцидент','Все сборщики добавятся автоматически')}
   <form class="form" data-form="incident">
+   <div class="field"><label>Тип</label><div class="checks">${Object.entries(INC_KIND).map(([v,[t]])=>`<label class="check"><input type="radio" name="kind" value="${v}" ${v===(arg?.kind||'problem')?'checked':''} onchange="var g=this.closest('form').querySelector('.inc-repl');if(g)g.hidden=this.value==='problem'">${t}</label>`).join('')}</div></div>
+   <div class="field inc-repl" ${arg?.kind&&arg.kind!=='problem'?'':'hidden'}><label for="if-it">Что меняем / возвращаем</label><input class="inp" id="if-it" name="item" list="replItems" placeholder="Монитор Lenovo Legion 320 Гц"><datalist id="replItems">${['Монитор','Наушники','Клавиатура','Мышь','Видеокарта','Блок питания','Материнская плата','ОЗУ','SSD','Корпус','Компьютер целиком'].map(x=>`<option value="${x}">`).join('')}</datalist></div>
    <div class="field"><label for="if-t">Что случилось</label><input class="inp" id="if-t" name="title" required autofocus placeholder="Не стартует ПК после сборки"></div>
    <div class="grid2">
     <div class="field"><label for="if-o">Заказ</label><select class="inp" id="if-o" name="orderId" onchange="incFill(this)"><option value="">— без заказа —</option>${act.map(o=>opt(o.id,'№'+o.num+' · '+(o.product||'')+((o.builtBy||o.builderId)?' · собирал '+nameOf(o.builtBy||o.builderId):''),arg?.orderId)).join('')}</select></div>
@@ -2124,6 +2129,7 @@ SHEET.incident=id=>{
   const i=S.incidents.find(x=>x.id===id);if(!i)return null;const me=whoId();
   const o=S.orders.find(x=>x.id===i.orderId);
   return `${head(esc(i.title),`${(SEV[i.severity]||SEV.mid)[0]} · ${esc(nameOf(i.createdBy))} · ${fmtDT(i.createdAt)}`)}
+  ${isRepl(i)?`<div class="field"><label>${INC_KIND[i.kind][0]}${i.item?' · '+esc(i.item):''}</label><div class="chips">${Object.entries(REPL_ST).map(([v,[t]])=>`<button class="chip" data-act="replStatus" data-id="${esc(i.id)}" data-v="${v}" aria-pressed="${(i.replStatus||'wait')===v}">${t}</button>`).join('')}</div></div>`:''}
   <div class="chips">${Object.entries(INC_ST).map(([v,[t]])=>`<button class="chip" data-act="incStatus" data-id="${esc(i.id)}" data-v="${v}" aria-pressed="${(i.status||'open')===v}">${t}</button>`).join('')}</div>
   ${i.city||i.pc||i.bought?`<dl class="kv">${i.orderNum?`<dt>№ заказа</dt><dd>${esc(i.orderNum)}</dd>`:''}<dt>Город</dt><dd>${esc(i.city||'—')}</dd><dt>Компьютер</dt><dd>${esc(i.pc||'—')}</dd><dt>Когда брал</dt><dd>${i.bought?fmtDay(i.bought)+' · '+(()=>{const d=Math.round((Date.now()-new Date(i.bought+'T12:00:00').getTime())/864e5);return d<1?'сегодня':d+' дн. назад'})():'—'}</dd></dl>`:''}
   ${o?`<button class="btn sm" data-act="openOrder" data-id="${esc(o.id)}" style="align-self:flex-start">Заказ №${esc(o.num)} · ${esc(stage(o).t)}</button>`:''}
@@ -2265,6 +2271,7 @@ ACT.ordersStage=d=>{const m={queue:'queue',assembly:'work',setup:'work',test:'wo
 ACT.fCrm=d=>{S.f.crm=d.v;paint()};
 ACT.crmMine=()=>{S.f.crmMine=!S.f.crmMine;paint()};
 ACT.fInc=d=>{S.f.inc=d.v;paint()};
+ACT.replStatus=async d=>{const i=S.incidents.find(x=>x.id===d.id);if(!i)return;const patch={replStatus:d.v};if(d.v==='done')patch.status='done';if(await upd(doc('incidents/'+i.id),patch))toast((REPL_ST[d.v]||[])[0]||'Сохранено')};
 ACT.fCour=d=>{S.f.courier=d.v||null;paint()};
 ACT.fMoney=d=>{S.f.money=d.v;paint()};
 ACT.mRange=d=>{const R=moneyRange();S.f.mr=d.v==='custom'?{p:'custom',s:R.s,e:R.e}:{p:d.v};try{localStorage.setItem('teb.mr',JSON.stringify(S.f.mr))}catch(e){}paint()};
@@ -2273,7 +2280,7 @@ ACT.newOrder=()=>openSheet('orderForm',null);
 ACT.editOrder=d=>openSheet('orderForm',{id:d.id});
 ACT.openLead=d=>openSheet('lead',d.id);
 ACT.newLead=()=>openSheet('lead',null);
-ACT.newIncident=()=>openSheet('newIncident',{});
+ACT.newIncident=d=>openSheet('newIncident',{kind:d?.v||(S.f.inc==='repl'?'replace':'problem')});
 ACT.incFromOrder=d=>openSheet('newIncident',{orderId:d.id});
 ACT.openInc=d=>{
   if(S.incUnsub)S.incUnsub();S.incMsgs=[];
@@ -2450,7 +2457,7 @@ FORM.lead=async(fd,f)=>{const id=f.dataset.id;const now=Date.now();
 FORM.incident=async fd=>{const now=Date.now();const me=whoId();
   const parts=[...new Set([me,...builders().map(b=>b.id)])];
   const ref=col('incidents').doc();
-  const data={title:(fd.get('title')||'').trim(),orderId:fd.get('orderId')||'',severity:fd.get('severity'),fault:(()=>{const f=fd.get('fault');if(f!=='builder')return f||null;const oo=S.orders.find(x=>x.id===fd.get('orderId'));return oo?(oo.builtBy||oo.builderId||null):null})(),status:'open',city:(fd.get('city')||'').trim(),orderNum:(fd.get('orderNum')||'').trim(),pc:(fd.get('pc')||'').trim(),bought:fd.get('bought')||'',createdAt:now,lastAt:now,createdBy:me,participants:parts};
+  const data={title:(fd.get('title')||'').trim(),orderId:fd.get('orderId')||'',severity:fd.get('severity'),fault:(()=>{const f=fd.get('fault');if(f!=='builder')return f||null;const oo=S.orders.find(x=>x.id===fd.get('orderId'));return oo?(oo.builtBy||oo.builderId||null):null})(),status:'open',kind:fd.get('kind')||'problem',item:(fd.get('item')||'').trim(),replStatus:(fd.get('kind')||'problem')!=='problem'?'wait':null,city:(fd.get('city')||'').trim(),orderNum:(fd.get('orderNum')||'').trim(),pc:(fd.get('pc')||'').trim(),bought:fd.get('bought')||'',createdAt:now,lastAt:now,createdBy:me,participants:parts};
   if(!data.title)return;
   if(!data.city||!data.pc||!data.bought)return toast('Укажите город, компьютер и когда брал');
   if(fd.get('fault')==='builder'&&!data.fault)return toast('Выберите заказ, у которого назначен сборщик');
