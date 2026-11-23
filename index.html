@@ -630,6 +630,7 @@ const SEV={low:['Низкая',''],mid:['Средняя','warn'],high:['Крит
 const INC_ST={open:['Открыт','bad'],work:['В работе','warn'],done:['Решён','good']};
 const INC_KIND={problem:['Проблема',''],replace:['Замена по браку','warn'],refund:['Возврат','bad']};
 const REPL_ST={wait:['Ждём замену','warn'],sent:['Отправили','accent'],done:['Заменено','good']};
+const saleDay=o=>o.soldDate||dayKey(o.createdAt||0);
 const isRepl=i=>i.kind==='replace'||i.kind==='refund';
 function incClientText(i){const o=S.orders.find(x=>x.id===i.orderId);const head=i.kind==='refund'?'💸 Возврат':i.kind==='replace'?'🔄 Замена':'⚠️ Инцидент';
 const num=i.orderNum||o?.num||'';const cy=i.city||o?.city||'',ad=i.address||o?.address||'';const addr=ad&&cy&&ad.toLowerCase().includes(cy.toLowerCase())?ad:[cy,ad].filter(Boolean).join(', ');const ph=i.phone||o?.phone||'';
@@ -861,7 +862,7 @@ function gateView(){
 /* ---------- metrics ---------- */
 function dayStats(k){
   const d=S.days[k]||{};
-  const os=S.orders.filter(o=>o.stage!=='cancelled'&&dayKey(o.createdAt)===k);
+  const os=S.orders.filter(o=>o.stage!=='cancelled'&&saleDay(o)===k);
   const mSum=os.reduce((a,o)=>a+(S.margins[o.id]?.margin!=null?+S.margins[o.id].margin:(suggestMargin(o)||0)),0);
   const exp=S.expenses.filter(e=>e.date===k).reduce((a,e)=>a+(+e.amount||0),0);
   const orders=d.orders!=null?+d.orders:os.length;
@@ -1529,7 +1530,7 @@ VIEW.mchat=()=>{
 const PAY_BASE_OLD=4000,PAY_PLAN=8000,PAY_SALE=2000;const noBaseFrom=()=>S.config.noBaseFrom||'2026-11-23';const baseOf=k=>k>=noBaseFrom()?0:PAY_BASE_OLD;const PAY_BASE=0;
 const isClub=o=>/клуб/i.test([o.product,o.num,o.client].join(' '));
 const soldBy=o=>o.soldBy||o.createdBy;
-const portalSales=k=>S.orders.filter(o=>o.stage!=='cancelled'&&!isClub(o)&&dayKey(o.createdAt)===k);
+const portalSales=k=>S.orders.filter(o=>o.stage!=='cancelled'&&!isClub(o)&&saleDay(o)===k);
 const planOf=k=>+(S.plan[k]?.plan??0);
 const teamSales=k=>{const f=S.plan[k]?.fact;const n=portalSales(k).length;return f!=null&&f!==''?Math.max(+f,n):n};
 function worked(mid,k){const wd=(new Date(k+'T12:00:00Z').getUTCDay()+6)%7;if((S.schedule[mid]||[])[wd])return true;
@@ -1844,7 +1845,7 @@ SHEET.order=id=>{
   const mg=S.margins[o.id];const sugg=suggestMargin(o);
   const media=o.media||[];
   const c=o.courier||{};
-  return `${head(`Заказ №${esc(o.num||'—')}${(+o.qty||1)>1?` · ${o.qty} шт`:''}`,`${pillStage(o)} · создан ${o.createdAt?fmtDT(o.createdAt):''} · ${esc(nameOf(o.createdBy))}`)}
+  return `${head(`Заказ №${esc(o.num||'—')}${(+o.qty||1)>1?` · ${o.qty} шт`:''}`,`${pillStage(o)} · продан ${fmtDay(saleDay(o))} · ${esc(nameOf(o.createdBy))}`)}
   ${r!=='manager'&&(WORK_ST.includes(o.stage)||o.builtAt)?buildPanel(o,canBuild&&!!o.builderId):''}
   <dl class="kv">
    <dt>Товар</dt><dd>${esc(o.product||k?.name||'—')}</dd>
@@ -1903,7 +1904,7 @@ async function warrantyCanvas(o){
   const ink='#111111',mute='#6A6A6A',line='#BDBDBD',thin='#D9D9D9';const logo=await loadLogo();
   const D='Unbounded, Manrope, sans-serif',B='Manrope, sans-serif',MO='"JetBrains Mono", monospace';
   const d=ts=>new Intl.DateTimeFormat('ru-RU',{timeZone:TZ,day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(ts));
-  const sold=o.createdAt||Date.now();const until=new Date(sold);until.setMonth(until.getMonth()+wMonths());
+  const sold=o.soldDate?new Date(o.soldDate+'T12:00:00').getTime():(o.createdAt||Date.now());const until=new Date(sold);until.setMonth(until.getMonth()+wMonths());
   const hr=(Y,w=1.5,col=line)=>{x.strokeStyle=col;x.lineWidth=w;x.beginPath();x.moveTo(M,Y);x.lineTo(W-M,Y);x.stroke()};
   x.fillStyle='#FFFFFF';x.fillRect(0,0,W,H);
   // header
@@ -2031,6 +2032,7 @@ SHEET.orderForm=arg=>{
    <div class="field"><label>Статус оплаты</label><div class="checks">${radio('paid','paid','Оплачен полностью',paid)}${radio('paid','partial','Оплачен частично',paid)}${radio('paid','cod','Не оплачен (при получении)',paid)}</div>
     <div class="grid2" data-show="prepaid"><div class="field"><label for="of-pre">Уже оплачено, ₸</label><input class="inp num" id="of-pre" name="prepaid" inputmode="numeric" value="${esc(o.prepaid||'')}"></div><div class="field"><label>Остаток к оплате</label><div class="inp num" id="of-rest" style="display:flex;align-items:center">—</div></div></div></div>
    <div class="field"><label>Подарки</label><div class="checks">${Object.keys(GIFTS).map(g=>`<label class="check"><input type="checkbox" name="gifts" value="${esc(g)}" ${(o.gifts||[]).includes(g)?'checked':''}>${esc(g)}</label>`).join('')}</div></div>
+   <div class="field"><label for="of-sd">Дата продажи</label><input class="inp" type="date" id="of-sd" name="soldDate" required value="${esc(o.soldDate||(o.createdAt?dayKey(o.createdAt):dayKey(Date.now())))}" max="${dayKey(Date.now())}"><div class="small muted">По этой дате заказ идёт в аналитику и зарплату. Продал вчера — поставь вчера.</div></div>
    <div class="field"><label for="of-sold">Кто продал</label><select class="inp" id="of-sold" name="soldBy">${S.team.filter(m=>['manager','admin'].includes(m.role)).map(m=>opt(m.id,m.name,o.soldBy||o.createdBy||whoId())).join('')}${S.team.some(m=>m.id===whoId())?'':opt(whoId(),nameOf(whoId()),o.soldBy||whoId())}</select></div>
    <label class="check" style="align-self:flex-start"><input type="checkbox" name="urgent" ${o.urgent?'checked':''}>Срочно</label>
    ${arg?.id?'':`<div class="field"><label for="of-note">Примечание</label><textarea class="inp" id="of-note" name="note">${esc(o.note||'')}</textarea></div>`}
@@ -2124,7 +2126,7 @@ SHEET.newIncident=arg=>{
    </div>
    ${(()=>{const o0=S.orders.find(x=>x.id===arg?.orderId);return `<div class="grid2">
     <div class="field"><label for="if-c">Город</label><input class="inp" id="if-c" name="city" required list="incCities" placeholder="Алматы" value="${esc(o0?.city||'')}"><datalist id="incCities">${['Алматы','Астана','Караганда','Шымкент',...new Set(S.orders.map(o=>o.city).filter(Boolean))].filter((v,i,a)=>a.indexOf(v)===i).map(c=>`<option value="${esc(c)}">`).join('')}</datalist></div>
-    <div class="field"><label for="if-b">Когда брал</label><input class="inp" type="date" id="if-b" name="bought" required value="${o0?dayKey(o0.createdAt||Date.now()):''}"></div></div>
+    <div class="field"><label for="if-b">Когда брал</label><input class="inp" type="date" id="if-b" name="bought" required value="${o0?saleDay(o0):''}"></div></div>
    <div class="field"><label for="if-n">Номер заказа <span class="muted">(необязательно)</span></label><input class="inp num" id="if-n" name="orderNum" inputmode="numeric" placeholder="например 1488 или номер Kaspi" value="${esc(o0?.num||'')}"></div>
    <div class="field"><label for="if-pc">Какой компьютер</label><input class="inp" id="if-pc" name="pc" required placeholder="Бегамот SETUP, WaterCube Black" value="${esc(o0?[o0.product,o0.caseModel].filter(Boolean).join(', '):'')}"></div>
    <div class="grid2"><div class="field"><label for="if-ad">Адрес</label><input class="inp" id="if-ad" name="address" placeholder="ул. Абая 10, кв 5" value="${esc(o0?.address||'')}"></div>
@@ -2137,7 +2139,7 @@ SHEET.newIncident=arg=>{
   </form>`;
 };
 function incFill(sel){const f=sel.closest('form');const o=S.orders.find(x=>x.id===sel.value);if(!o||!f)return;const set=(n,v)=>{const el=f.querySelector(`[name="${n}"]`);if(el&&v)el.value=v};
-  set('city',o.city);set('orderNum',o.num);set('bought',dayKey(o.createdAt||Date.now()));set('pc',[o.product,o.caseModel].filter(Boolean).join(', '));set('address',o.address);set('phone',o.phone)}
+  set('city',o.city);set('orderNum',o.num);set('bought',saleDay(o));set('pc',[o.product,o.caseModel].filter(Boolean).join(', '));set('address',o.address);set('phone',o.phone)}
 window.incFill=incFill;
 SHEET.incident=id=>{
   const i=S.incidents.find(x=>x.id===id);if(!i)return null;const me=whoId();
@@ -2443,7 +2445,7 @@ FORM.order=async(fd,f)=>{
     dtype:fd.get('dtype')||'',city:r.city,delivery:r.delivery,address:r.delivery==='pickup'?'':(fd.get('address')||'').trim(),payType:r.payType,paid:r.paid,
     prepaid:r.paid==='partial'?(num(fd.get('prepaid'))||0):0,deliveryFee:r.delivery==='pickup'?0:(num(fd.get('deliveryFee'))||0),
     deliveryDate:r.delivery!=='pickup'&&TIME_CITIES.includes(r.city)?(fd.get('deliveryDate')||''):'',deliverySlot:r.delivery!=='pickup'&&TIME_CITIES.includes(r.city)?(fd.get('deliverySlot')||''):'',
-    discount:r.payType==='cash'&&r.discount,mixCash:r.payType==='mixed'?r.mixCash:0,mixVia:r.payType==='mixed'?r.mixVia:'',qty:r.qty,amount:num(fd.get('amount'))||0,amountManual:f.dataset.manual==='1',gifts:fd.getAll('gifts'),urgent:!!fd.get('urgent'),soldBy:fd.get('soldBy')||whoId()};
+    discount:r.payType==='cash'&&r.discount,mixCash:r.payType==='mixed'?r.mixCash:0,mixVia:r.payType==='mixed'?r.mixVia:'',soldDate:fd.get('soldDate')||dayKey(Date.now()),qty:r.qty,amount:num(fd.get('amount'))||0,amountManual:f.dataset.manual==='1',gifts:fd.getAll('gifts'),urgent:!!fd.get('urgent'),soldBy:fd.get('soldBy')||whoId()};
   if(!data.amount)return toast('Укажите сумму заказа');
   data.courierCity=r.paid!=='paid'&&r.delivery!=='pickup'&&CITIES.includes(r.city)?r.city:null;
   if(r.paid==='partial'&&!data.prepaid)return toast('Укажите, сколько уже оплачено');
