@@ -691,7 +691,10 @@ function calcOrder(d){
   return{base,ups,upPrices,cash,total,mix,missing,custom:!!k?.custom||!k,
     prices:{cash,cash2:Math.round(cash*0.98/1000)*1000,kaspi,halyk:up1k(cash/.77)}};
 }
-const nextOrderNum=()=>String(Math.max(+S.config.lastOrderNum||0,...S.orders.map(o=>parseInt(String(o.num).replace(/\D/g,''))||0).filter(n=>n<100000))+1);
+const nextOrderNum=()=>{const pn=v=>parseInt(String(v||'').replace(/\D/g,''))||0;
+  const nums=S.orders.map(o=>pn(o.num)).filter(n=>n>0&&n<100000).sort((a,b)=>a-b);const cfg=+S.config.lastOrderNum||0;
+  let cur=cfg||nums[0]||0;for(const n of nums)if(n<=cur+300&&n>cur)cur=n;
+  let n=cur+1;const used=new Set(S.orders.filter(o=>o.stage!=='cancelled').map(o=>String(o.num)));while(used.has(String(n)))n++;return String(n)};
 const productName=d=>{const k=kitOf(d.kitId);const ups=(d.upgrades||[]).map(upOf).filter(Boolean).map(u=>u.name);return [k?.name||d.product||'',ups.length?'('+ups.join(', ')+')':''].filter(Boolean).join(' ')};
 const stage=o=>ST[o.stage]||ST.queue;
 
