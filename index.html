@@ -234,6 +234,12 @@ textarea.inp{min-height:80px;resize:vertical}
 .steps span.on{background:var(--accent)}
 .steps span.done{background:var(--good)}
 .stepper{display:flex;flex-direction:column;gap:8px}
+.selwrap{position:relative;display:block}
+.selwrap .row{padding-left:48px}
+.selwrap .selbox{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;font-weight:800;color:var(--on-accent);z-index:1;pointer-events:none}
+.selwrap.on .selbox{background:var(--accent);border-color:var(--accent)}
+.selwrap.on .row{background:var(--accent-soft)}
+.selbar{position:sticky;bottom:calc(var(--tabbar-h,0px) + 12px);z-index:5;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-radius:16px;background:var(--surface);border:1px solid var(--line);box-shadow:0 10px 30px -10px rgba(0,0,0,.35)}
 html[data-bg]{background:linear-gradient(color-mix(in srgb,var(--bg) 52%,transparent),color-mix(in srgb,var(--bg) 70%,transparent)),var(--user-bg) center/cover fixed no-repeat,var(--bg)!important}
 html[data-bg] body,html[data-bg] #view,html[data-bg] main{background:transparent!important}
 .btrack{display:flex;align-items:center;gap:0}
@@ -985,10 +991,16 @@ VIEW.orders=()=>{
   const sets={active:['Активные',active],queue:['Очередь',o=>o.stage==='queue'],work:['В сборке',o=>IN_BUILD.includes(o.stage)],packed:['Упакованы',o=>o.stage==='packed'],shipped:['В пути',o=>o.stage==='shipped'],done:['Доставлены',o=>o.stage==='delivered'],cancelled:['Отменены',o=>o.stage==='cancelled'],all:['Все',()=>true]};
   let list=S.orders.filter(sets[f]?.[1]||active);
   if(q)list=list.filter(o=>[o.num,o.kaspiNum,o.phone,o.client,o.city,o.product].join(' ').toLowerCase().includes(q));
-  return `<div class="section-h"><h2>Заказы</h2><span class="spacer"></span><span class="muted small num">${list.length}</span></div>
+  const adm=S.isAdmin&&!S.viewAs;const sm=adm&&S.selMode;const sel=S.sel||(S.sel=new Set());
+  const rowFor=o=>sm?`<div class="selwrap ${sel.has(o.id)?'on':''}"><span class="selbox">${sel.has(o.id)?'✓':''}</span>${orderRow(o).replace('data-act="openOrder"','data-act="selOrd"')}</div>`:orderRow(o);
+  const bar=sm?`<div class="selbar"><span><b class="num">${sel.size}</b> выбрано</span><button class="btn sm" data-act="selAll">${list.length&&list.every(o=>sel.has(o.id))?'Снять все':'Выбрать все'}</button><span class="spacer"></span>
+    <button class="btn sm danger" data-act="bulkCancel" ${sel.size?'':'disabled'}>${S.bulkAsk==='cancel'?'Точно отменить?':'Отменить'}</button>
+    <button class="btn sm ${S.bulkAsk==='done'?'good':'primary'}" data-act="bulkDone" ${sel.size?'':'disabled'}>${S.bulkAsk==='done'?`Точно? ${sel.size} шт.`:'✓ Выполнено'}</button></div>`:'';
+  return `<div class="section-h"><h2>Заказы</h2><span class="spacer"></span><span class="muted small num">${list.length}</span>${adm?`<button class="btn sm ${sm?'primary':''}" data-act="selMode">${sm?'Готово':'Выбрать'}</button>`:''}</div>
   <input class="inp" id="ordersQ" data-keep data-input="ordersQ" placeholder="Поиск: номер, телефон, город" value="${esc(S.f.ordersQ)}">
   <div class="chips">${Object.entries(sets).map(([k,[t,fn]])=>`<button class="chip" data-act="fOrders" data-v="${k}" aria-pressed="${f===k}">${t}<span class="n">${S.orders.filter(fn).length}</span></button>`).join('')}</div>
-  <div class="list">${list.length?list.slice(0,200).map(o=>orderRow(o)).join(''):`<div class="empty">${S.orders.length?'Ничего не найдено.':'Заказов пока нет. Нажмите «+», чтобы добавить первый.'}</div>`}</div>`;
+  ${sm?'<div class="muted small">Отметьте заказы и нажмите «✓ Выполнено» — они закроются как доставленные, без заполнения.</div>':''}
+  <div class="list">${list.length?list.slice(0,200).map(rowFor).join(''):`<div class="empty">${S.orders.length?'Ничего не найдено.':'Заказов пока нет. Нажмите «+», чтобы добавить первый.'}</div>`}</div>${bar}`;
 };
 
 function specsHtml(k,ups){
@@ -1814,6 +1826,7 @@ SHEET.order=id=>{
   if(o.stage==='shipped'&&canManage&&!o.courierCity)actions+=`<button class="btn good" data-act="delivered" data-id="${esc(o.id)}">Доставлен</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn" data-act="editOrder" data-id="${esc(o.id)}">Изменить</button>`;
   if(canManage||S.isAdmin)actions+=`<button class="btn" data-act="warrantyPdf" data-id="${esc(o.id)}">📄 Скачать гарантию</button>`;
+  if(S.isAdmin&&!S.viewAs&&!['delivered','cancelled'].includes(o.stage))actions+=`<button class="btn ${S.f.ad===o.id?'good':''}" data-act="adminDone" data-id="${esc(o.id)}">${S.f.ad===o.id?'Точно закрыть? Ещё раз':'✓ Выполнено (закрыть)'}</button>`;
   if(canManage)actions+=`<button class="btn" data-act="copyChat" data-id="${esc(o.id)}">📋 Для чата заказов</button><button class="btn" data-act="copyOrder" data-id="${esc(o.id)}">Скопировать заказ клиенту</button>`;
   actions+=`<button class="btn" data-act="incFromOrder" data-id="${esc(o.id)}">Инцидент</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn danger" data-act="cancelOrder" data-id="${esc(o.id)}">Отменить</button>`;
@@ -2322,6 +2335,18 @@ ACT.copyLink=d=>{const k=kitOf(d.k);const l=linksOf(k)[+d.i];if(l)copyText(linkM
 ACT.copyLinkRaw=d=>{const k=kitOf(d.k);const l=linksOf(k)[+d.i];if(l)copyText(l.url)};
 ACT.applyLink=d=>{S.calc.kitId=d.k;S.calc.ups=d.u?d.u.split(','):[];paint()};
 ACT.copyOrder=d=>{const o=S.orders.find(x=>x.id===d.id)||(S.lastCreated?.id===d.id?S.lastCreated:null);if(o)copyText(orderText(o))};
+ACT.selMode=()=>{S.selMode=!S.selMode;S.sel=new Set();S.bulkAsk=null;paint()};
+ACT.selOrd=d=>{const s=S.sel||(S.sel=new Set());s.has(d.id)?s.delete(d.id):s.add(d.id);S.bulkAsk=null;paint()};
+ACT.selAll=()=>{const btns=[...document.querySelectorAll('[data-act="selOrd"]')].map(b=>b.dataset.id);const all=btns.every(id=>S.sel.has(id));S.sel=new Set(all?[]:btns);S.bulkAsk=null;paint()};
+async function bulkSet(kind){const ids=[...(S.sel||[])];if(!ids.length)return;if(S.bulkAsk!==kind){S.bulkAsk=kind;paint();clearTimeout(ACT._bk);ACT._bk=setTimeout(()=>{S.bulkAsk=null;schedulePaint()},5000);return}
+  S.bulkAsk=null;let n=0;const now=Date.now();
+  for(const id of ids){const o=S.orders.find(x=>x.id===id);if(!o)continue;
+    const patch=kind==='done'?{stage:'delivered',stageAt:now,history:hist(o,'Закрыт админом как выполненный')}:{stage:'cancelled',stageAt:now,history:hist(o,'Отменён админом')};
+    if(await upd(doc('orders/'+id),patch))n++}
+  S.sel=new Set();S.selMode=false;toast(kind==='done'?`Закрыто как выполненные: ${n}`:`Отменено: ${n}`);paint()}
+ACT.bulkDone=()=>bulkSet('done');ACT.bulkCancel=()=>bulkSet('cancel');
+ACT.adminDone=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(S.f.ad!==o.id){S.f.ad=o.id;clearTimeout(ACT._ad);ACT._ad=setTimeout(()=>{S.f.ad=null;schedulePaint()},5000);return schedulePaint()}
+  S.f.ad=null;if(await upd(doc('orders/'+o.id),{stage:'delivered',stageAt:Date.now(),history:hist(o,'Закрыт админом как выполненный')})){closeSheet();toast('Заказ закрыт как выполненный')}};
 ACT.copyChat=d=>{const o=S.orders.find(x=>x.id===d.id)||(S.lastCreated?.id===d.id?S.lastCreated:null);if(o)copyText(chatText(o),'Скопировано — вставьте в чат заказов')};
 ACT.recalc=(d,el)=>{const f=el.closest('form');f.dataset.manual='';recalcOrderForm(f)};
 ACT.editUp=d=>openSheet('up',d.id||null);
