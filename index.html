@@ -1198,7 +1198,7 @@ async function copyText(t,msg){try{await navigator.clipboard.writeText(t);toast(
 /* карточка заказа для Telegram-чата заказов — в привычном формате */
 function chatText(o){
   const k=kitOf(o.kitId);const ups=(o.upgrades||[]).map(upOf).filter(Boolean);
-  const L=[`Номер заказа: ${o.num}`,`📦 Товар - ${o.product||k?.name||''}`];
+  const L=[`Номер заказа: ${o.num}`,`📦 Товар - ${o.product||k?.name||''}${(+o.qty||1)>1?` × ${o.qty} шт`:''}`];
   if(o.caseModel)L.push(`📦 Корпус - ${o.caseModel}`);
   L.push('',`👥 ${[o.client,o.phone].filter(Boolean).join(' ')||'—'}${o.kaspiNum?`  | Kaspi ${o.kaspiNum}`:''}`);
   L.push(`🏙️ Адрес: ${o.delivery==='pickup'?'Самовывоз, '+(o.city||'Алматы'):[o.city,o.address].filter(Boolean).join(', ')}${dtOf(o.dtype)?' | '+dtOf(o.dtype).s:''}`);
@@ -1839,7 +1839,7 @@ SHEET.order=id=>{
   const mg=S.margins[o.id];const sugg=suggestMargin(o);
   const media=o.media||[];
   const c=o.courier||{};
-  return `${head(`Заказ №${esc(o.num||'—')}`,`${pillStage(o)} · создан ${o.createdAt?fmtDT(o.createdAt):''} · ${esc(nameOf(o.createdBy))}`)}
+  return `${head(`Заказ №${esc(o.num||'—')}${(+o.qty||1)>1?` · ${o.qty} шт`:''}`,`${pillStage(o)} · создан ${o.createdAt?fmtDT(o.createdAt):''} · ${esc(nameOf(o.createdBy))}`)}
   ${r!=='manager'&&(WORK_ST.includes(o.stage)||o.builtAt)?buildPanel(o,canBuild&&!!o.builderId):''}
   <dl class="kv">
    <dt>Товар</dt><dd>${esc(o.product||k?.name||'—')}</dd>
@@ -1974,9 +1974,10 @@ function suggestMargin(o){
   const kc=costOf('kit_'+o.kitId);
   if(kc==null)return o.amount>1e6?150000:null;
   let c=kc;for(const u of (o.upgrades||[])){const uc=costOf('up_'+u);if(uc==null)return null;c+=uc}
-  const g=(o.gifts||[]).reduce((a,x)=>a+(GIFTS[x]||0),0);
+  const q=+o.qty||1;c*=q;
+  const g=(o.gifts||[]).reduce((a,x)=>a+(GIFTS[x]||0),0)*q;
   const rev=o.payType==='mixed'?(+o.mixCash||0)+(o.amount-(+o.mixCash||0))*(o.mixVia==='halyk'?.77:.85):o.amount*(PAY_F[o.payType]||1);
-  return Math.round(rev-c-g-10000);
+  return Math.round(rev-c-g-10000*(+o.qty||1));
 }
 
 SHEET.orderForm=arg=>{
@@ -2015,8 +2016,9 @@ SHEET.orderForm=arg=>{
     <div class="field" data-show="dtime"><label for="of-dd">Дата доставки</label><input class="inp" type="date" id="of-dd" name="deliveryDate" value="${esc(o.deliveryDate||'')}"></div>
    </div>
    <div class="field" data-show="dtime"><label>Время доставки</label><div class="checks">${SLOTS.map(s=>radio('deliverySlot',s,s,o.deliverySlot||'')).join('')}</div></div>
-   <div class="field"><label for="of-am">Сумма заказа, ₸</label><div style="display:flex;gap:8px"><input class="inp num" id="of-am" name="amount" inputmode="numeric" value="${esc(o.amount||'')}"><button class="btn sm" type="button" data-act="recalc">Авто</button></div>
-    <div class="small muted" id="of-calc"></div></div>
+   <div class="grid2" style="grid-template-columns:110px 1fr"><div class="field"><label for="of-q">Сколько штук</label><div style="display:flex;gap:6px;align-items:center"><button class="btn sm" type="button" onclick="var i=this.parentNode.querySelector('input');i.value=Math.max(1,(+i.value||1)-1);i.dispatchEvent(new Event('input',{bubbles:true}))">−</button><input class="inp num" id="of-q" name="qty" inputmode="numeric" value="${esc(o.qty||1)}" style="text-align:center;min-width:0"><button class="btn sm" type="button" onclick="var i=this.parentNode.querySelector('input');i.value=(+i.value||1)+1;i.dispatchEvent(new Event('input',{bubbles:true}))">+</button></div></div>
+   <div class="field"><label for="of-am">Сумма — по сколько продал, ₸</label><div style="display:flex;gap:8px"><input class="inp num" id="of-am" name="amount" inputmode="numeric" value="${esc(o.amount||'')}"><button class="btn sm" type="button" data-act="recalc">Авто</button></div></div></div>
+    <div class="small muted" id="of-calc" style="margin-top:-6px"></div><div class="small muted">Можно вписать свою цену — авторасчёт не перезапишет. «Авто» вернёт цену по прайсу.</div>
    <div class="field"><label>Способ оплаты</label><div class="checks">${PAY_METHODS.map(p=>radio('payType',p,PAY[p],pay)).join('')}</div>
     <label class="check" data-show="disc" style="align-self:flex-start"><input type="checkbox" name="discount" ${o.discount?'checked':''}>Скидка 2% за наличные</label>
     <div class="grid2" data-show="mix"><div class="field"><label for="of-mix">Наличными, ₸</label><input class="inp num" id="of-mix" name="mixCash" inputmode="numeric" value="${esc(o.mixCash||'')}" placeholder="300000"></div>
@@ -2034,7 +2036,7 @@ SHEET.orderForm=arg=>{
 function readOrderForm(f){
   const fd=new FormData(f);const pick=fd.get('cityPick')||'Алматы';
   const city=pick==='other'?(fd.get('cityOther')||'').trim():pick;
-  return{fd,kitId:fd.get('kitId')||'',upgrades:fd.getAll('upgrades'),payType:fd.get('payType')||'kaspi_inst',discount:!!fd.get('discount'),mixCash:num(fd.get('mixCash'))||0,mixVia:fd.get('mixVia')||'kaspi',paid:fd.get('paid')||'paid',delivery:fd.get('delivery')||'install',city,pick};
+  return{fd,kitId:fd.get('kitId')||'',upgrades:fd.getAll('upgrades'),payType:fd.get('payType')||'kaspi_inst',discount:!!fd.get('discount'),mixCash:num(fd.get('mixCash'))||0,mixVia:fd.get('mixVia')||'kaspi',paid:fd.get('paid')||'paid',delivery:fd.get('delivery')||'install',city,pick,qty:Math.max(1,Math.round(num(fd.get('qty'))||1))};
 }
 function recalcOrderForm(f,src){
   if(!f)return;
@@ -2044,7 +2046,7 @@ function recalcOrderForm(f,src){
   const r=readOrderForm(f);const c=calcOrder(r);
   if(src&&src.name==='amount')f.dataset.manual='1';
   const am=f.querySelector('[name="amount"]');
-  if(f.dataset.manual!=='1'&&!c.custom&&c.base!=null)am.value=c.total||'';
+  if(f.dataset.manual!=='1'&&!c.custom&&c.base!=null)am.value=c.total?c.total*r.qty:'';
   const k=kitOf(r.kitId);
   const parts=[];if(k&&c.base!=null)parts.push(`${k.name} ${nfmt(c.base)}`);c.upPrices.forEach(([u,p])=>{if(p!=null)parts.push(`${u.name} ${p<0?'−'+nfmt(-p):'+'+nfmt(p)}`)});
   let txt=parts.length?`Наличные: ${parts.join(' + ')}${parts.length>1?' = '+nfmt(c.cash):''}`:'';
@@ -2054,7 +2056,8 @@ function recalcOrderForm(f,src){
   f.querySelectorAll('[data-show="disc"]').forEach(el=>el.hidden=r.payType!=='cash');
   f.querySelectorAll('[data-show="mix"]').forEach(el=>el.hidden=r.payType!=='mixed');
   if(c.missing.length)txt+=`${txt?' · ':''}<span style="color:var(--warn)">нет цены: ${esc(c.missing.join(', '))} — впишите сумму вручную</span>`;
-  if(f.dataset.manual==='1')txt+=`${txt?' · ':''}сумма изменена вручную`;
+  if(r.qty>1&&c.total&&f.dataset.manual!=='1')txt+=` × ${r.qty} шт = <b>${nfmt(c.total*r.qty)}</b>`;
+  if(f.dataset.manual==='1')txt+=`${txt?' · ':''}сумма вписана вручную`;
   if(c.custom&&k)txt='Кастом — впишите сумму вручную';
   f.querySelector('#of-calc').innerHTML=txt;
   f.querySelectorAll('[data-show="custom"]').forEach(el=>el.hidden=!(k?.custom));
@@ -2433,7 +2436,7 @@ FORM.order=async(fd,f)=>{
     dtype:fd.get('dtype')||'',city:r.city,delivery:r.delivery,address:r.delivery==='pickup'?'':(fd.get('address')||'').trim(),payType:r.payType,paid:r.paid,
     prepaid:r.paid==='partial'?(num(fd.get('prepaid'))||0):0,deliveryFee:r.delivery==='pickup'?0:(num(fd.get('deliveryFee'))||0),
     deliveryDate:r.delivery!=='pickup'&&TIME_CITIES.includes(r.city)?(fd.get('deliveryDate')||''):'',deliverySlot:r.delivery!=='pickup'&&TIME_CITIES.includes(r.city)?(fd.get('deliverySlot')||''):'',
-    discount:r.payType==='cash'&&r.discount,mixCash:r.payType==='mixed'?r.mixCash:0,mixVia:r.payType==='mixed'?r.mixVia:'',amount:num(fd.get('amount'))||0,amountManual:f.dataset.manual==='1',gifts:fd.getAll('gifts'),urgent:!!fd.get('urgent'),soldBy:fd.get('soldBy')||whoId()};
+    discount:r.payType==='cash'&&r.discount,mixCash:r.payType==='mixed'?r.mixCash:0,mixVia:r.payType==='mixed'?r.mixVia:'',qty:r.qty,amount:num(fd.get('amount'))||0,amountManual:f.dataset.manual==='1',gifts:fd.getAll('gifts'),urgent:!!fd.get('urgent'),soldBy:fd.get('soldBy')||whoId()};
   if(!data.amount)return toast('Укажите сумму заказа');
   data.courierCity=r.paid!=='paid'&&r.delivery!=='pickup'&&CITIES.includes(r.city)?r.city:null;
   if(r.paid==='partial'&&!data.prepaid)return toast('Укажите, сколько уже оплачено');
