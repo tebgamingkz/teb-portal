@@ -1211,6 +1211,11 @@ function orderText(o){
 }
 async function copyText(t,msg){try{await navigator.clipboard.writeText(t);toast(msg||'Скопировано — вставьте клиенту в WhatsApp')}catch(e){openSheet('copy',t)}}
 /* карточка заказа для Telegram-чата заказов — в привычном формате */
+async function relayOrder(o){const url=S.config.relayUrl;if(!url||typeof firebase==='undefined'||!firebase.auth)return;
+  try{const u=firebase.auth().currentUser;if(!u)return;const token=await u.getIdToken();
+   const order={id:o.id,num:String(o.num||''),amount:+o.amount||0,qty:+o.qty||1,city:o.city||'',phone:o.phone||'',product:o.product||kitOf(o.kitId)?.name||'',soldDate:o.soldDate||'',club:isClub(o)};
+   await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({token,kind:'order',order,text:chatText(o),capi:S.config.relayCapi!==false,tg:S.config.relayTg!==false})});
+  }catch(e){console.warn('relay',e)}}
 function chatText(o){
   const k=kitOf(o.kitId);const ups=(o.upgrades||[]).map(upOf).filter(Boolean);
   const L=[`Номер заказа: ${o.num}`,`📦 Товар - ${o.product||k?.name||''}${(+o.qty||1)>1?` × ${o.qty} шт`:''}`];
@@ -2249,6 +2254,8 @@ SHEET.exp=id=>{const e=id?S.expenses.find(x=>x.id===id):{date:todayKey(),cat:'З
 
 SHEET.cfg=()=>`${head('Цель и курс')}<form class="form" data-form="cfg">
   <div class="field"><label for="cf-last">Последний внутренний номер заказа</label><input class="inp num" id="cf-last" name="lastOrderNum" inputmode="numeric" value="${esc(S.config.lastOrderNum||'')}"><span class="muted small">Новые заказы получат следующий номер автоматически.</span></div>
+  <div class="field"><label for="cf-relay">Адрес пересылки (Google Apps Script)</label><input class="inp" id="cf-relay" name="relayUrl" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.config.relayUrl||'')}"><span class="muted small">Новые заказы уходят отсюда в Meta (покупка) и в Telegram-чат. Пусто — ничего не отправляется.</span>
+   <div class="checks" style="margin-top:6px"><label class="check"><input type="checkbox" name="relayCapi" ${S.config.relayCapi!==false?'checked':''}>Продажи в Meta</label><label class="check"><input type="checkbox" name="relayTg" ${S.config.relayTg!==false?'checked':''}>Заказы в Telegram</label></div></div>
   <div class="grid2"><div class="field"><label for="cf-wm">Гарантия, месяцев</label><input class="inp num" id="cf-wm" name="warrantyMonths" inputmode="numeric" value="${esc(S.config.warrantyMonths||12)}"></div>
   <div class="field"><label for="cf-wc">Контакты в гарантии</label><input class="inp" id="cf-wc" name="warrantyContact" value="${esc(wContact())}"></div></div>
   <div class="field"><label for="cf-wt">Условия гарантии (каждая строка — пункт)</label><textarea class="inp" id="cf-wt" name="warrantyTerms" rows="6">${esc(wTerms().join('\n'))}</textarea></div>
@@ -2472,7 +2479,7 @@ FORM.order=async(fd,f)=>{
     if(prefill?.leadId)await upd(doc('leads/'+prefill.leadId),{stage:'won',updatedAt:now});
     if(prefill?.noteId)await upd(doc('notes/'+prefill.noteId),{status:'done',tag:'Купил',updatedAt:now});
     sysChat(`Новый заказ №${data.num}: ${data.product||kitOf(data.kitId)?.name||''}${data.urgent?' · СРОЧНО':''}`);
-    toast('Заказ добавлен в очередь сборки');S.lastCreated={...full,id:ref.id};openSheet('created',ref.id)}
+    toast('Заказ добавлен в очередь сборки');S.lastCreated={...full,id:ref.id};openSheet('created',ref.id);relayOrder({...full,id:ref.id})}
 };
 FORM.noteAdd=async(fd,f)=>{const now=Date.now();const phone=(fd.get('phone')||'').trim();if(!phone)return toast('Впишите номер');
   const data={phone,name:(fd.get('name')||'').trim(),text:(fd.get('text')||'').trim(),tag:fd.get('tag')||'',remindAt:fromLocalInput(fd.get('remindAt')),status:'open',createdBy:whoId(),createdAt:now,updatedAt:now};
@@ -2542,7 +2549,7 @@ FORM.day=async(fd)=>{const k=fd.get('date');if(!k)return;const data={};
   if(await put(doc('days/'+k),data)){closeSheet();toast('День сохранён')}};
 FORM.exp=async(fd,f)=>{const id=f.dataset.id;const data={date:fd.get('date'),cat:fd.get('cat'),amount:num(fd.get('amount'))||0,memberId:fd.get('memberId')||'',note:(fd.get('note')||'').trim()};
   const ok=id?await upd(doc('expenses/'+id),data):await put(col('expenses').doc(),{...data,at:Date.now()});if(ok){closeSheet();toast('Расход сохранён')}};
-FORM.cfg=async fd=>{const data={...S.config,warrantyMonths:num(fd.get('warrantyMonths'))||12,warrantyContact:(fd.get('warrantyContact')||'').trim(),warrantyTerms:(fd.get('warrantyTerms')||'').trim(),lastOrderNum:num(fd.get('lastOrderNum'))||0,bBonus:num(fd.get('bBonus'))||0,bPayStart:fd.get('bPayStart')||bPayStart(),goal:num(fd.get('goal'))||0,rate:num(fd.get('rate'))||470,startDay:Math.min(28,Math.max(1,num(fd.get('startDay'))||1))};
+FORM.cfg=async fd=>{const data={...S.config,warrantyMonths:num(fd.get('warrantyMonths'))||12,warrantyContact:(fd.get('warrantyContact')||'').trim(),warrantyTerms:(fd.get('warrantyTerms')||'').trim(),lastOrderNum:num(fd.get('lastOrderNum'))||0,relayUrl:(fd.get('relayUrl')||'').trim(),relayCapi:!!fd.get('relayCapi'),relayTg:!!fd.get('relayTg'),bBonus:num(fd.get('bBonus'))||0,bPayStart:fd.get('bPayStart')||bPayStart(),goal:num(fd.get('goal'))||0,rate:num(fd.get('rate'))||470,startDay:Math.min(28,Math.max(1,num(fd.get('startDay'))||1))};
   if(await put(doc('config/main'),data)){closeSheet();toast('Сохранено')}};
 FORM.member=async(fd,f)=>{const id=f.dataset.id;const data={name:(fd.get('name')||'').trim(),role:fd.get('role'),city:fd.get('city')||'',lead:!!fd.get('lead'),active:!!fd.get('active')};
   const ok=id?await upd(doc('team/'+id),data):await put(col('team').doc(),{...data,userId:null});if(ok){closeSheet();toast('Сохранено')}};
