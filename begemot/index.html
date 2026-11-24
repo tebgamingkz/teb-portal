@@ -131,6 +131,9 @@ footer b{color:var(--fg)}
 .sticky .p b{font-family:var(--fd);font-size:16px;display:block;white-space:nowrap}
 .sticky .p small{color:var(--mut);font-size:12px;white-space:nowrap}
 .sticky .btn{padding:13px;font-size:16px}
+.yt{position:relative;display:block;width:100%;aspect-ratio:16/9;border:1px solid var(--line);border-radius:18px;overflow:hidden;padding:0;background:#000;cursor:pointer}
+.yt img,.yt iframe{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:0}
+.yt .play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:68px;height:68px;border-radius:50%;background:rgba(255,0,0,.9);color:#fff;display:grid;place-items:center;box-shadow:0 6px 24px rgba(0,0,0,.5)}
 :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 @media (min-width:620px){h1{font-size:46px}}
 </style>
@@ -181,6 +184,14 @@ footer b{color:var(--fg)}
   </div>
 
   <div class="grp" style="margin-top:14px"><div class="grp-h"><b>Цвет корпуса</b></div><div class="sw" id="colors"></div></div>
+
+  <section id="video" style="padding-top:18px">
+    <h2>Видеообзор</h2>
+    <button type="button" class="yt" id="yt" data-id="ydzhvLM9QGY" aria-label="Смотреть видеообзор">
+      <img src="https://i.ytimg.com/vi/ydzhvLM9QGY/hqdefault.jpg" alt="" loading="lazy">
+      <span class="play"><svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+    </button>
+  </section>
 
   <section id="build">
     <h2>Собери свой Бегамот</h2>
@@ -372,6 +383,8 @@ function renderTotals(){var t=total(),kp=Math.round(t*KASPI_K/1000)*1000,mo=Math
   document.querySelectorAll('[data-wa]').forEach(function(a){a.href=h;a.target='_blank';a.rel='noopener'});
   document.querySelectorAll('[data-wa-plain]').forEach(function(a){a.href='https://wa.me/'+PHONE+'?text='+encodeURIComponent(waText(true));a.target='_blank';a.rel='noopener'})}
 function render(){renderGroups();renderFps();renderFit();renderSpec();renderStage();renderTotals()}
+document.getElementById('yt').addEventListener('click',function(){var b=this;if(b.querySelector('iframe'))return;var f=document.createElement('iframe');
+  f.src='https://www.youtube-nocookie.com/embed/'+b.dataset.id+'?autoplay=1&playsinline=1&rel=0';f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';f.allowFullscreen=true;f.title='Видеообзор';b.innerHTML='';b.appendChild(f)});
 document.getElementById('colors').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;S.color=b.dataset.o;render()});
 document.getElementById('groups').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;
   if(b.dataset.kit)S.kit=b.dataset.kit;else if(b.dataset.g)S[b.dataset.g]=b.dataset.o;
