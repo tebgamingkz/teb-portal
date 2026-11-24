@@ -175,7 +175,7 @@ footer b{color:var(--fg)}
           <rect x="92" y="34" width="216" height="272" rx="12" fill="url(#glass)"/>
         </g>
       </svg>
-      <video id="vid" playsinline muted loop autoplay hidden></video>
+      <img id="photo" alt="" hidden style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"><video id="vid" playsinline muted loop autoplay hidden></video>
       <div class="cap"><b id="capColor">Чёрный корпус</b><small id="capNote">подсветка RGB</small></div>
     </div>
   </div>
@@ -263,6 +263,7 @@ footer b{color:var(--fg)}
 /* ===== НАСТРОЙКИ (менять здесь) ===== */
 var PHONE='77066282847';           // номер WhatsApp для заказов
 var KASPI_K=809000/685000;         // наценка рассрочки Kaspi к цене наличными
+var PHOTOS={white:'white-1.webp', black:''};  // фото корпусов по цвету (файлы рядом)
 var VIDEOS={                       // видео корпусов: положи mp4 рядом и впиши имя файла
   black:'', white:''               // например black:'video-black.mp4'
 };
@@ -349,8 +350,10 @@ function renderStage(){var white=S.color==='white';
   document.getElementById('aio').setAttribute('opacity',S.cool==='aio'?'1':'0');
   document.getElementById('capColor').textContent=white?'Белый корпус':'Чёрный корпус';
   var v=VIDEOS[S.color],el=document.getElementById('vid');
+  var ph=PHOTOS[S.color],im=document.getElementById('photo');
+  if(ph){if(im.getAttribute('src')!==ph)im.src=ph;im.alt=white?'Белый корпус Бегамот':'Чёрный корпус Бегамот';im.hidden=false}else{im.hidden=true;im.removeAttribute('src')}
   if(v){if(el.getAttribute('src')!==v){el.src=v;el.play().catch(function(){})}el.hidden=false;document.getElementById('capNote').textContent='видеообзор'}
-  else{el.hidden=true;el.removeAttribute('src');document.getElementById('capNote').textContent='подсветка RGB'}}
+  else{el.hidden=true;el.removeAttribute('src');document.getElementById('capNote').textContent=ph?'реальное фото':'подсветка RGB'}}
 function waText(plain){if(plain)return 'Здравствуйте! У меня вопрос по «Бегамоту» ('+SRC+')';
   var t=total(),pay=document.getElementById('pay').value,city=document.getElementById('city').value;var L=[];
   if(isStd()){L.push('Здравствуйте! Хочу оформить «Бегамот SETUP» — стандартная комплектация ('+SRC+')')}
