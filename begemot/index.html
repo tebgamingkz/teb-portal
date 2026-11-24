@@ -209,7 +209,8 @@ footer b{color:var(--fg)}
   <section id="order">
     <div class="sum">
       <div class="row"><span class="l">Наличными / переводом</span><span class="big" id="sumCash">685 000 ₸</span></div>
-      <div class="row" style="margin-top:4px"><span class="l">Рассрочка Kaspi 0-0-24</span><span class="mo" id="sumMo">≈ 33 730 ₸/мес</span></div>
+      <div class="row" style="margin-top:10px"><span class="l">Рассрочка Kaspi 0-0-24</span><span class="big" id="sumKaspi" style="font-size:22px">809 000 ₸</span></div>
+      <div class="row" style="margin-top:2px"><span class="l" style="text-transform:none;letter-spacing:0;font-weight:600">0 ₸ сейчас · 24 месяца</span><span class="mo" id="sumMo">≈ 33 710 ₸/мес</span></div>
       <div class="mini">
         <div><label for="city">Город</label><select id="city"><option>Алматы</option><option>Астана</option><option>Шымкент</option><option>Караганда</option><option>Другой город</option></select></div>
         <div><label for="pay">Оплата</label><select id="pay"><option value="cash">Наличные / перевод</option><option value="kaspi">Рассрочка Kaspi</option></select></div>
@@ -244,7 +245,7 @@ footer b{color:var(--fg)}
 
   <section>
     <h2>Вопросы</h2>
-    <details><summary>Как работает рассрочка?</summary><p>Через Kaspi на 24 месяца без переплаты, первый взнос 0 ₸. Платёж за стандартный комплект — около 33 730 ₸ в месяц. Точную сумму покажет Kaspi при оформлении.</p></details>
+    <details><summary>Как работает рассрочка?</summary><p>Через Kaspi на 24 месяца, первый взнос 0 ₸. Стандартный комплект в рассрочку — 809 000 ₸, платёж около 33 710 ₸ в месяц. Точную сумму покажет Kaspi при оформлении.</p></details>
     <details><summary>Сколько ждать?</summary><p>Стандартный комплект по Алматы — обычно 1–2 дня. С изменениями или в другой город — менеджер назовёт точный срок.</p></details>
     <details><summary>Можно без монитора и периферии?</summary><p>Да — выбери «Только ПК» или «ПК + монитор» в начале конфигуратора.</p></details>
     <details><summary>Что если что-то сломается?</summary><p>Гарантия 12 месяцев. Пиши нам — заменим или починим за наш счёт.</p></details>
@@ -254,14 +255,14 @@ footer b{color:var(--fg)}
 </div>
 
 <div class="sticky"><div class="w">
-  <div class="p"><b id="stCash">685 000 ₸</b><small id="stMo">или ≈ 33 730 ₸/мес</small></div>
+  <div class="p"><b id="stCash">685 000 ₸</b><small id="stMo">Kaspi 0-0-24: 809 000 ₸</small></div>
   <a class="btn wa" data-wa href="#"><svg class="i" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2Z"/></svg>Заказать</a>
 </div></div>
 
 <script>
 /* ===== НАСТРОЙКИ (менять здесь) ===== */
 var PHONE='77066282847';           // номер WhatsApp для заказов
-var KASPI_K=809520/685000;         // наценка рассрочки Kaspi к цене наличными
+var KASPI_K=809000/685000;         // наценка рассрочки Kaspi к цене наличными
 var VIDEOS={                       // видео корпусов: положи mp4 рядом и впиши имя файла
   black:'', white:''               // например black:'video-black.mp4'
 };
@@ -357,12 +358,12 @@ function waText(plain){if(plain)return 'Здравствуйте! У меня в
     GROUPS.forEach(function(g){if(!vis(g))return;var o=opt(g,S[g.id]);var std=S[g.id]===(g.id==='gpu'?'5060':g.opts[0].id);
       if(!std||g.id==='color')L.push('• '+g.t+': '+o.n+(o.p?' ('+(o.p>0?'+':'−')+nf(Math.abs(o.p))+' ₸)':''))});}
   if(isStd())L.push('• Цвет корпуса: '+(S.color==='white'?'белый':'чёрный'));
-  L.push('','💰 Итого: '+nf(t)+' ₸ наличными'+(pay==='kaspi'?' / рассрочка Kaspi ≈ '+nf(Math.round(t*KASPI_K/1000)*1000)+' ₸ (≈ '+nf(Math.round(t*KASPI_K/24/10)*10)+' ₸/мес)':''));
+  L.push('','💰 Итого: '+nf(t)+' ₸ наличными'+(pay==='kaspi'?' / рассрочка Kaspi 0-0-24 '+(isStd()?'':'≈ ')+nf(Math.round(t*KASPI_K/1000)*1000)+' ₸ (≈ '+nf(Math.round(Math.round(t*KASPI_K/1000)*1000/24/10)*10)+' ₸/мес)':''));
   L.push('🏙 Город: '+city,'💳 Оплата: '+(pay==='kaspi'?'рассрочка Kaspi':'наличные / перевод'));
   return L.join('\n')}
-function renderTotals(){var t=total(),mo=Math.round(t*KASPI_K/24/10)*10;
-  document.getElementById('sumCash').textContent=nf(t)+' ₸';document.getElementById('sumMo').textContent='≈ '+nf(mo)+' ₸/мес';
-  document.getElementById('stCash').textContent=nf(t)+' ₸';document.getElementById('stMo').textContent='или ≈ '+nf(mo)+' ₸/мес';
+function renderTotals(){var t=total(),kp=Math.round(t*KASPI_K/1000)*1000,mo=Math.round(kp/24/10)*10,ap=isStd()?'':'≈ ';
+  document.getElementById('sumCash').textContent=nf(t)+' ₸';document.getElementById('sumKaspi').textContent=ap+nf(kp)+' ₸';document.getElementById('sumMo').textContent='≈ '+nf(mo)+' ₸/мес';
+  document.getElementById('stCash').textContent=nf(t)+' ₸';document.getElementById('stMo').textContent='Kaspi 0-0-24: '+ap+nf(kp)+' ₸';
   document.getElementById('kaspi').hidden=!isStd();
   var h='https://wa.me/'+PHONE+'?text='+encodeURIComponent(waText());
   document.querySelectorAll('[data-wa]').forEach(function(a){a.href=h;a.target='_blank';a.rel='noopener'});
