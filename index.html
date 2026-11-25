@@ -1247,6 +1247,11 @@ function trackSync(list){for(const o of list){if(!o.trackId)continue;const g=tra
   if(_tsig[o.id]===undefined){_tsig[o.id]=g;continue}
   if(_tsig[o.id]!==g){_tsig[o.id]=g;doc('track/'+o.trackId).set({...trackData(o),['st_'+o.stage]:o.stageAt||Date.now()},{merge:true}).catch(()=>{})}}}
 function newToken(){const a=new Uint8Array(9);(crypto||window.msCrypto).getRandomValues(a);return Array.from(a,b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('')}
+async function relayOrderEdit(o,note){const url=S.config.relayUrl;if(!url||S.config.relayTg===false||typeof firebase==='undefined'||!firebase.auth)return;
+  try{const u=firebase.auth().currentUser;if(!u)return;const token=await u.getIdToken();
+   const head=o.stage==='cancelled'?'❌ ЗАКАЗ ОТМЕНЁН\n\n':'';
+   await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({token,kind:'order_edit',order:{id:o.id},text:head+chatText(o),note:note||''})});
+  }catch(e){console.warn('relay edit',e)}}
 function chatText(o){
   const k=kitOf(o.kitId);const ups=(o.upgrades||[]).map(upOf).filter(Boolean);
   const L=[`Номер заказа: ${o.num}`,`📦 Товар - ${o.product||k?.name||''}${(+o.qty||1)>1?` × ${o.qty} шт`:''}`];
@@ -2524,7 +2529,7 @@ ACT.packed=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;
   if(await upd(doc('orders/'+o.id),patch)){sysChat(`✅ №${o.num} выполнен (${nameOf(o.builderId)}), упакован${o.courierCity?' → курьер '+o.courierCity:''}`);toast('Готово к отправке')}};
 ACT.delivered=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;await upd(doc('orders/'+o.id),{stage:'delivered',stageAt:Date.now(),history:hist(o,'Доставлен')})};
 ACT.cancelOrder=async(d,el)=>{if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Точно отменить?';return}
-  const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(await upd(doc('orders/'+o.id),{stage:'cancelled',stageAt:Date.now(),history:hist(o,'Отменён')}))toast('Заказ отменён')};
+  const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(await upd(doc('orders/'+o.id),{stage:'cancelled',stageAt:Date.now(),history:hist(o,'Отменён')})){toast('Заказ отменён');relayOrderEdit({...o,stage:'cancelled'},'отменён')}};
 ACT.incStatus=async d=>{const i=S.incidents.find(x=>x.id===d.id);if(!i)return;
   if(await upd(doc('incidents/'+i.id),{status:d.v,lastAt:Date.now()}))await col('incidents/'+i.id+'/msgs').add({at:Date.now(),sys:true,text:`${nameOf(whoId())}: статус «${INC_ST[d.v][0]}»`}).catch(()=>{})};
 ACT.qty=async d=>{const s=S.stock.find(x=>x.id===d.id);if(!s)return;await upd(doc('stock/'+s.id),{qty:(+s.qty||0)+(+d.d)})};
@@ -2562,7 +2567,7 @@ FORM.order=async(fd,f)=>{
   if(!data.amount)return toast('Укажите сумму заказа');
   data.courierCity=r.paid!=='paid'&&r.delivery!=='pickup'&&CITIES.includes(r.city)?r.city:null;
   if(r.paid==='partial'&&!data.prepaid)return toast('Укажите, сколько уже оплачено');
-  if(id){const o=S.orders.find(x=>x.id===id);if(await upd(doc('orders/'+id),{...data,history:hist(o,'Изменён')})){closeSheet();toast('Сохранено')}return}
+  if(id){const o=S.orders.find(x=>x.id===id);if(await upd(doc('orders/'+id),{...data,history:hist(o,'Изменён')})){closeSheet();toast('Сохранено');relayOrderEdit({...o,...data,id},'изменён')}return}
   if(S.orders.some(o=>String(o.num)===data.num&&o.stage!=='cancelled'))return toast('Заказ с таким номером уже есть');
   const now=Date.now();const note=(fd.get('note')||'').trim();
   const ref=col('orders').doc();
