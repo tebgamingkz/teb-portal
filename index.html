@@ -660,7 +660,8 @@ const member=()=>S.team.find(m=>m.userId&&m.userId===S.uid)||null;
 const role=()=>S.isAdmin?(S.viewAs||'admin'):(member()?.role||null);
 const whoId=()=>member()?.id||(S.isAdmin?'admin':'u');
 const nameOf=id=>id==='admin'?'Админ':(S.team.find(m=>m.id===id)?.name||'—');
-const builders=()=>S.team.filter(m=>m.role==='builder'&&m.active!==false);
+const builders=()=>S.team.filter(m=>m.role==='builder'&&m.active!==false).sort((a,b)=>(!!a.placeholder)-(!!b.placeholder));
+const realBuilders=()=>builders().filter(b=>!b.placeholder);
 const isLead=()=>!!member()?.lead||(S.isAdmin&&member()?.role!=='builder');
 const rate=()=>+S.config.rate||470;
 const kitOf=id=>S.kits.find(k=>k.id===id);
@@ -724,6 +725,7 @@ async function boot(){
   const timer=setTimeout(()=>{if(!S.ready){S.ready=true;S.slow=true;paint()}},10000);
   /* one-time data updates shipped with the site, applied once by the first admin who opens it */
 const DATA_PATCHES=[
+ {id:'builder-zero-2026-11-25',label:'сборщик «0» для заказов без сборщика',writes:[['team/zero',{active:true,city:'',lead:false,name:'0',role:'builder',userId:null,placeholder:true}]]},
  {id:'m40k-30k-2026-11-23',label:'маржа 30 тыс у заказа на 40 тыс',run:async()=>{const m=S.orders.filter(o=>o.stage!=='cancelled'&&+o.amount>=35000&&+o.amount<=45000&&saleDay(o)>='2026-11-22');
    if(m.length!==1)return false;return await put(doc('margins/'+m[0].id),{margin:30000,at:Date.now()})}},
  {id:'wc7800-to-22-2026-11-23',label:'заказ с 7800X3D + водянкой перенесён на 22.11',run:async()=>{const m=S.orders.filter(o=>o.stage!=='cancelled'&&saleDay(o)==='2026-11-23'&&(o.upgrades||[]).includes('up-7800x3d')&&(o.upgrades||[]).includes('up-water'));
@@ -1463,7 +1465,7 @@ function buildPanel(o,canBuild){
 
 const B_SHIFT=4000,B_BUILD=3000,B_DEFECT=3;
 const bPayStart=()=>S.config.bPayStart||'2026-11-22';
-const bMe=()=>S.isAdmin?(S.f.bWho&&S.team.some(m=>m.id===S.f.bWho)?S.f.bWho:builders()[0]?.id):whoId();
+const bMe=()=>S.isAdmin?(S.f.bWho&&S.team.some(m=>m.id===S.f.bWho)?S.f.bWho:realBuilders()[0]?.id):whoId();
 const builtBy=o=>o.builtBy||o.builderId;
 const bBuilds=(mid,k)=>S.orders.filter(o=>o.builtAt&&o.stage!=='cancelled'&&builtBy(o)===mid&&dayKey(o.builtAt)===k);
 function bWorked(mid,k){const wd=(new Date(k+'T12:00:00Z').getUTCDay()+6)%7;if((S.schedule[mid]||[])[wd])return true;
@@ -1472,7 +1474,7 @@ function bDay(mid,k){const L=(S.paylog[mid]||{})[k]||{};const real=bBuilds(mid,k
   let w=L.w!=null?!!L.w:(bWorked(mid,k)||builds>0);if(k<bPayStart()&&L.sales==null&&L.w==null){builds=0;w=false}
   const base=w?B_SHIFT:0;return{k,builds,w,base,extra:builds*B_BUILD,total:base+builds*B_BUILD}}
 const faultIncs=(mid,s,e)=>S.incidents.filter(i=>i.fault===mid&&dayKey(i.createdAt||0)>=s&&dayKey(i.createdAt||0)<=e);
-function bPicker(cur,lbl){if(!S.isAdmin)return'';const bs=builders();return `<div class="section-h"><span class="muted small">${lbl}</span><div class="chips">${bs.map(b=>`<button class="chip" data-act="bWho" data-v="${esc(b.id)}" aria-pressed="${b.id===cur}">${esc(b.name)}</button>`).join('')}</div></div>`}
+function bPicker(cur,lbl){if(!S.isAdmin)return'';const bs=realBuilders();return `<div class="section-h"><span class="muted small">${lbl}</span><div class="chips">${bs.map(b=>`<button class="chip" data-act="bWho" data-v="${esc(b.id)}" aria-pressed="${b.id===cur}">${esc(b.name)}</button>`).join('')}</div></div>`}
 function bcard(o){const P=stageProgress(o);const st=o.stage==='queue'?'Ждёт старта':(BTRACK.find(([s])=>s===o.stage)||[])[1]||stage(o).t;
   return `<button class="bcard" data-act="openOrder" data-id="${esc(o.id)}">
    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div><div class="bn">№${esc(o.num||'—')}</div><div class="bp">${esc(o.product||kitOf(o.kitId)?.name||'')}</div></div>
@@ -1733,7 +1735,7 @@ VIEW.pay=()=>{
 };
 VIEW.chat=()=>{
   const me=whoId();const unassigned=S.orders.filter(o=>o.stage==='queue'&&!o.builderId);
-  return `<div class="section-h"><h2>Чат сборки</h2><span class="spacer"></span><span class="muted small">${builders().length} сборщиков</span></div>
+  return `<div class="section-h"><h2>Чат сборки</h2><span class="spacer"></span><span class="muted small">${realBuilders().length} сборщиков</span></div>
   ${unassigned.length&&isLead()?`<div class="hint">Не распределено: ${unassigned.length}. ${unassigned.slice(0,3).map(o=>`<button class="btn sm" data-act="assign" data-id="${esc(o.id)}">№${esc(o.num)} → назначить</button>`).join(' ')}</div>`:''}
   <div class="msgs" id="chatMsgs">${S.chat.length?S.chat.map(m=>msgHtml(m,me)).join(''):'<div class="empty">Сообщений пока нет. Главный сборщик пишет здесь, кому какой заказ.</div>'}</div>
   <form class="composer" data-form="chat"><input class="inp" id="chatIn" name="text" data-keep placeholder="Сообщение сборщикам…" autocomplete="off"><button class="btn primary" type="submit" aria-label="Отправить">${icon('send')}</button></form>`;
@@ -1914,7 +1916,7 @@ SHEET.order=id=>{
     if(r==='builder'&&!o.builderId&&isLead())actions+=`<button class="btn primary" data-act="take" data-id="${esc(o.id)}">Взять в сборку</button>`;
     if(canBuild&&o.builderId)actions+=`<button class="btn primary" data-act="startBuild" data-id="${esc(o.id)}">Начал сборку</button>`;
   }
-  if(isLead()&&WORK_ST.includes(o.stage))actions+=`<button class="btn" data-act="assign" data-id="${esc(o.id)}">${o.builderId?'🔁 Переназначить':'Назначить сборщика'}</button>`;
+  if(isLead()&&(WORK_ST.includes(o.stage)||['packed','shipped','delivered'].includes(o.stage)))actions+=`<button class="btn" data-act="assign" data-id="${esc(o.id)}">${o.builderId?'🔁 Переназначить':'Назначить сборщика'}</button>`;
   if(o.stage==='packed'&&canManage&&!o.courierCity)actions+=o.delivery==='pickup'?`<button class="btn good" data-act="pickup" data-id="${esc(o.id)}">Выдан клиенту</button>`:`<button class="btn primary" data-act="ship" data-id="${esc(o.id)}">Отправлен</button>`;
   if(o.stage==='shipped'&&canManage&&!o.courierCity)actions+=`<button class="btn good" data-act="delivered" data-id="${esc(o.id)}">Доставлен</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn" data-act="editOrder" data-id="${esc(o.id)}">Изменить</button>`;
@@ -2250,7 +2252,7 @@ SHEET.incident=id=>{
   <div class="chips">${Object.entries(INC_ST).map(([v,[t]])=>`<button class="chip" data-act="incStatus" data-id="${esc(i.id)}" data-v="${v}" aria-pressed="${(i.status||'open')===v}">${t}</button>`).join('')}</div>
   ${i.city||i.pc||i.bought?`<dl class="kv">${i.orderNum?`<dt>№ заказа</dt><dd>${esc(i.orderNum)}</dd>`:''}<dt>Город</dt><dd>${esc(i.city||'—')}</dd><dt>Компьютер</dt><dd>${esc(i.pc||'—')}</dd><dt>Когда брал</dt><dd>${i.bought?fmtDay(i.bought)+' · '+(()=>{const d=Math.round((Date.now()-new Date(i.bought+'T12:00:00').getTime())/864e5);return d<1?'сегодня':d+' дн. назад'})():'—'}</dd></dl>`:''}
   ${o?`<button class="btn sm" data-act="openOrder" data-id="${esc(o.id)}" style="align-self:flex-start">Заказ №${esc(o.num)} · ${esc(stage(o).t)}</button>`:''}
-  ${isLead()||S.isAdmin?`<div class="field"><label>Чья вина</label><div class="chips"><button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="" aria-pressed="${!i.fault}">выясняем</button><button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="none" aria-pressed="${i.fault==='none'}">не сборщик</button>${builders().map(b=>`<button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="${esc(b.id)}" aria-pressed="${i.fault===b.id}">${esc(b.name)}</button>`).join('')}</div></div>`:i.fault&&i.fault!=='none'?`<div class="small"><span class="pill bad">по вине: ${esc(nameOf(i.fault))}</span></div>`:''}
+  ${isLead()||S.isAdmin?`<div class="field"><label>Чья вина</label><div class="chips"><button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="" aria-pressed="${!i.fault}">выясняем</button><button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="none" aria-pressed="${i.fault==='none'}">не сборщик</button>${realBuilders().map(b=>`<button class="chip" data-act="incFault" data-id="${esc(i.id)}" data-v="${esc(b.id)}" aria-pressed="${i.fault===b.id}">${esc(b.name)}</button>`).join('')}</div></div>`:i.fault&&i.fault!=='none'?`<div class="small"><span class="pill bad">по вине: ${esc(nameOf(i.fault))}</span></div>`:''}
   <div class="small muted">Участники: ${esc((i.participants||[]).map(nameOf).join(', '))}</div>
   <div class="msgs">${S.incMsgs.length?S.incMsgs.map(m=>msgHtml(m,me)).join(''):'<div class="muted small">Сообщений пока нет.</div>'}</div>
   <form class="sheet-composer" data-form="incMsg" data-id="${esc(i.id)}"><input class="inp" id="incIn" name="text" data-keep placeholder="Сообщение по проблеме…" autocomplete="off"><button class="btn primary" type="submit" aria-label="Отправить">${icon('send')}</button></form>`;
@@ -2258,7 +2260,7 @@ SHEET.incident=id=>{
 
 SHEET.assign=id=>{const o=S.orders.find(x=>x.id===id);if(!o)return null;
   return `${head(`Кто собирает №${esc(o.num)}?`,o.builderId?`Сейчас: ${esc(nameOf(o.builderId))} · ${esc(stage(o).t)}`:'')}<div class="list">${builders().map(b=>{const n=S.orders.filter(x=>x.builderId===b.id&&WORK_ST.includes(x.stage)).length;
-   return `<button class="row" data-act="doAssign" data-id="${esc(o.id)}" data-b="${esc(b.id)}"><div class="main"><div class="t1">${esc(b.name)}${b.lead?'<span class="pill accent">главный</span>':''}</div><div class="t2">в работе: ${n}</div></div>${o.builderId===b.id?'<span class="pill good">сейчас</span>':''}</button>`}).join('')||'<div class="empty">Добавьте сборщиков в «Команде».</div>'}</div>${o.builderId?`<button class="btn block" style="margin-top:10px" data-act="doAssign" data-id="${esc(o.id)}" data-b="">Снять со сборщика — вернуть в очередь</button>`:''}`};
+   return `<button class="row" data-act="doAssign" data-id="${esc(o.id)}" data-b="${esc(b.id)}"><div class="main"><div class="t1">${esc(b.name)}${b.lead?'<span class="pill accent">главный</span>':''}</div><div class="t2">в работе: ${n}</div></div>${o.builderId===b.id?'<span class="pill good">сейчас</span>':''}</button>`}).join('')||'<div class="empty">Добавьте сборщиков в «Команде».</div>'}</div>${o.builderId&&WORK_ST.includes(o.stage)?`<button class="btn block" style="margin-top:10px" data-act="doAssign" data-id="${esc(o.id)}" data-b="">Снять со сборщика — вернуть в очередь</button>`:''}`};
 
 SHEET.ship=id=>{const o=S.orders.find(x=>x.id===id);if(!o)return null;
   return `${head(`Отправка №${esc(o.num)}`)}<form class="form" data-form="ship" data-id="${esc(o.id)}">
@@ -2502,9 +2504,9 @@ ACT.take=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(o.build
   if(await upd(doc('orders/'+o.id),{builderId:whoId(),stageAt:Date.now(),history:hist(o,'Взял в сборку')})){sysChat(`${nameOf(whoId())} взял №${o.num}`);toast('Заказ ваш')}};
 ACT.doAssign=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(!isLead())return toast('Назначает только старший сборщик');
   const from=o.builderId;if((from||'')===(d.b||''))return closeSheet();
-  if(!d.b){if(await upd(doc('orders/'+o.id),{builderId:null,stage:'queue',stageAt:Date.now(),history:hist(o,'Снят со сборщика '+nameOf(from)+' → очередь')})){sysChat(`№${o.num}: ${nameOf(from)} снят, заказ в очереди`);closeSheet();toast('Вернули в очередь')}return}
+  if(!d.b){if(!WORK_ST.includes(o.stage))return closeSheet();if(await upd(doc('orders/'+o.id),{builderId:null,stage:'queue',stageAt:Date.now(),history:hist(o,'Снят со сборщика '+nameOf(from)+' → очередь')})){sysChat(`№${o.num}: ${nameOf(from)} снят, заказ в очереди`);closeSheet();toast('Вернули в очередь')}return}
   const t=from?'Переназначен: '+nameOf(from)+' → '+nameOf(d.b):'Назначен: '+nameOf(d.b);
-  if(await upd(doc('orders/'+o.id),{builderId:d.b,stageAt:o.stage==='queue'?Date.now():(o.stageAt||Date.now()),history:hist(o,t)})){sysChat(from?`№${o.num}: ${nameOf(from)} → ${nameOf(d.b)}`:`№${o.num} → ${nameOf(d.b)}`);closeSheet();toast(from?'Переназначено: '+nameOf(d.b):'Назначено: '+nameOf(d.b))}};
+  if(await upd(doc('orders/'+o.id),{builderId:d.b,...(WORK_ST.includes(o.stage)?{}:{builtBy:d.b}),stageAt:o.stage==='queue'?Date.now():(o.stageAt||Date.now()),history:hist(o,t)})){sysChat(from?`№${o.num}: ${nameOf(from)} → ${nameOf(d.b)}`:`№${o.num} → ${nameOf(d.b)}`);closeSheet();toast(from?'Переназначено: '+nameOf(d.b):'Назначено: '+nameOf(d.b))}};
 ACT.startBuild=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;
   let deducted=!!o.stockDeducted;const k=kitOf(o.kitId);
   if(k&&!deducted&&(k.items||[]).length){for(const it of k.items){const s=S.stock.find(x=>x.id===it.sku);if(s)await upd(doc('stock/'+s.id),{qty:(+s.qty||0)-(+it.qty||1)})}deducted=true}
@@ -2602,7 +2604,7 @@ FORM.lead=async(fd,f)=>{const id=f.dataset.id;const now=Date.now();
   const ok=id?await upd(doc('leads/'+id),data):await put(col('leads').doc(),{...data,createdAt:now,createdBy:whoId(),badReply:data.badReply||false});
   if(ok){closeSheet();toast(id?'Сохранено':'Клиент добавлен')}};
 FORM.incident=async fd=>{const now=Date.now();const me=whoId();
-  const parts=[...new Set([me,...builders().map(b=>b.id)])];
+  const parts=[...new Set([me,...realBuilders().map(b=>b.id)])];
   const ref=col('incidents').doc();
   const data={title:(fd.get('title')||'').trim(),orderId:fd.get('orderId')||'',severity:fd.get('severity'),fault:(()=>{const f=fd.get('fault');if(f!=='builder')return f||null;const oo=S.orders.find(x=>x.id===fd.get('orderId'));return oo?(oo.builtBy||oo.builderId||null):null})(),status:'open',kind:fd.get('kind')||'problem',item:(fd.get('item')||'').trim(),replStatus:(fd.get('kind')||'problem')!=='problem'?'wait':null,city:(fd.get('city')||'').trim(),orderNum:(fd.get('orderNum')||'').trim(),pc:(fd.get('pc')||'').trim(),address:(fd.get('address')||'').trim(),phone:(fd.get('phone')||'').trim(),when:(fd.get('when')||'').trim(),bought:fd.get('bought')||'',createdAt:now,lastAt:now,createdBy:me,participants:parts};
   if(!data.title)return;
