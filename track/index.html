@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Статус заказа | TEB GAMING</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#16151f">
+<link rel="icon" href="logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#16151f;--panel:#211f2d;--line:#363447;--fg:#f4efe9;--mut:#a39db1;--acc:#f0c39a;--ok:#7ddc9b;--bad:#ff7a7a;--wa:#25d366;
+--fd:'Unbounded',system-ui,sans-serif;--fb:'Manrope',system-ui,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--fb);font-size:16px;line-height:1.5}
+.w{max-width:520px;margin:0 auto;padding:calc(12px + env(safe-area-inset-top)) max(18px,env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(18px,env(safe-area-inset-left))}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+header img{height:38px}
+.eyebrow{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+h1{font-family:var(--fd);font-weight:800;font-size:30px;line-height:1.1;margin:6px 0 4px}
+.sub{color:var(--mut);margin:0}
+.now{margin:18px 0;background:linear-gradient(160deg,#2a2638,#1d1c28);border:1px solid var(--line);border-radius:20px;padding:16px}
+.now b{font-family:var(--fd);font-size:20px;display:block;color:var(--acc)}
+.now p{margin:4px 0 0;color:var(--mut);font-size:15px}
+.bar{height:8px;background:var(--panel);border-radius:6px;overflow:hidden;margin-top:12px}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#8a5cff,#ff5ca8);border-radius:6px;transition:width .5s}
+ol{list-style:none;margin:0;padding:0}
+li{display:grid;grid-template-columns:28px 1fr;gap:12px;position:relative;padding-bottom:16px}
+li:not(:last-child)::after{content:"";position:absolute;left:13px;top:28px;bottom:0;width:2px;background:var(--line)}
+li.done:not(:last-child)::after{background:var(--ok)}
+.dot{width:28px;height:28px;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:800;background:var(--bg);position:relative;z-index:1}
+li.done .dot{background:var(--ok);border-color:var(--ok);color:#0d2416}
+li.cur .dot{border-color:var(--acc);color:var(--acc);box-shadow:0 0 0 4px rgba(240,195,154,.15)}
+li .t{font-weight:700;padding-top:2px}
+li .d{color:var(--mut);font-size:13.5px}
+li:not(.done):not(.cur) .t{color:var(--mut)}
+.card{background:var(--panel);border-radius:16px;padding:14px 16px;margin-top:8px}
+.card .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:14.5px}
+.card .row span:first-child{color:var(--mut)}
+.card .row span:last-child{text-align:right;font-weight:700}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;text-decoration:none;font-weight:800;font-size:16px;border-radius:14px;padding:15px;margin-top:16px;background:var(--wa);color:#082b14}
+.note{color:var(--mut);font-size:13px;margin-top:14px;text-align:center}
+.empty{text-align:center;padding:60px 10px;color:var(--mut)}
+.empty b{display:block;color:var(--fg);font-size:18px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="w">
+  <header><img src="logo.png" alt="TEB GAMING" width="98" height="38"><span class="eyebrow" id="upd"></span></header>
+  <div id="app"><div class="empty"><b>Загружаем статус…</b>Секунду</div></div>
+</div>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+var PHONE='77066282847';
+var CFG={apiKey:"AIzaSyD1rXGA76gFrK8zQRlgJ-PFfG0XBAUM70I",authDomain:"teb-portal-66a41.firebaseapp.com",projectId:"teb-portal-66a41",appId:"1:519157942789:web:a823f5b94937e85e8a2a6c"};
+var STEPS=[
+ {id:'created',t:'Заказ принят',d:'Мы получили заказ и поставили его в очередь'},
+ {id:'assembly',t:'Сборка',d:'Мастер собирает компьютер'},
+ {id:'setup',t:'Настройка',d:'Ставим Windows, драйверы и программы'},
+ {id:'test',t:'Стресс-тест',d:'Проверяем под нагрузкой и в играх'},
+ {id:'pack',t:'Упаковка',d:'Упаковываем и готовим к выдаче'},
+ {id:'go',t:'',d:''},
+ {id:'delivered',t:'',d:''}];
+var MAP={queue:0,assembly:1,setup:2,test:3,pack:4,packed:4,shipped:5,delivered:6};
+var MON=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function dt(ts){if(!ts)return '';var d=new Date(ts);return d.getDate()+' '+MON[d.getMonth()]+', '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function day(s){if(!s)return '';var p=s.split('-');return +p[2]+' '+MON[+p[1]-1]}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function render(o){
+  var steps=STEPS.map(function(s){return Object.assign({},s)});
+  steps[5].t=o.pickup?'Готов к выдаче':'В пути';steps[5].d=o.pickup?'Можно забирать — напишите, когда удобно':(o.how+(o.city&&String(o.how).indexOf(o.city)<0?' · '+o.city:''));
+  steps[6].t=o.pickup?'Получен':'Доставлен';steps[6].d='Приятной игры!';
+  var cur=o.stage==='packed'&&o.pickup?5:(MAP[o.stage]!=null?MAP[o.stage]:0);
+  var when={0:o.st_created||o.createdAt,1:o.st_assembly,2:o.st_setup,3:o.st_test,4:o.st_pack||o.st_packed,5:o.pickup?o.st_packed:o.st_shipped,6:o.st_delivered};
+  var cancelled=o.stage==='cancelled';
+  var nowT=cancelled?'Заказ отменён':steps[cur].t,nowD=cancelled?'Если это ошибка — напишите нам':steps[cur].d;
+  if(!cancelled&&cur<5&&o.deliveryDate)nowD+=' · доставка '+day(o.deliveryDate)+(o.deliverySlot?', '+o.deliverySlot:'');
+  var pct=cancelled?0:Math.round(cur/6*100);
+  var h='<span class="eyebrow">Заказ №'+esc(o.num)+'</span><h1>'+esc(o.title)+(o.qty>1?' × '+o.qty:'')+'</h1><p class="sub">'+esc([o.color,o.city].filter(Boolean).join(' · '))+'</p>'+
+   '<div class="now"><span class="eyebrow">Сейчас</span><b>'+esc(nowT)+'</b><p>'+esc(nowD)+'</p><div class="bar"><i style="width:'+pct+'%"></i></div></div>';
+  if(!cancelled)h+='<ol>'+steps.map(function(s,i){var cls=i<cur||(i===cur&&cur===6)?'done':i===cur?'cur':'';
+    return '<li class="'+cls+'"><span class="dot">'+(cls==='done'?'✓':(i+1))+'</span><div><div class="t">'+esc(s.t)+'</div><div class="d">'+esc(i<=cur&&when[i]?dt(when[i]):s.d)+'</div></div></li>'}).join('')+'</ol>';
+  h+='<div class="card"><div class="row"><span>Получение</span><span>'+esc(o.how)+'</span></div>'+(o.deliveryDate?'<div class="row"><span>Дата</span><span>'+esc(day(o.deliveryDate)+(o.deliverySlot?', '+o.deliverySlot:''))+'</span></div>':'')+
+   '<div class="row"><span>Гарантия</span><span>12 месяцев</span></div></div>';
+  h+='<a class="btn" target="_blank" rel="noopener" href="https://wa.me/'+PHONE+'?text='+encodeURIComponent('Здравствуйте! Вопрос по заказу №'+o.num)+'">Написать по заказу в WhatsApp</a>';
+  h+='<p class="note">Статус обновляется сам — страницу можно не перезагружать.</p>';
+  document.getElementById('app').innerHTML=h;
+  document.getElementById('upd').textContent=o.updatedAt?'обновлено '+dt(o.updatedAt):'';
+}
+function fail(t,d){document.getElementById('app').innerHTML='<div class="empty"><b>'+t+'</b>'+d+'<a class="btn" target="_blank" rel="noopener" href="https://wa.me/'+PHONE+'">Написать в WhatsApp</a></div>'}
+var t=(new URLSearchParams(location.search).get('t')||'').trim();
+if(!/^[a-z0-9]{6,32}$/.test(t))fail('Ссылка неполная','Проверьте ссылку или напишите нам — подскажем статус.');
+else{try{firebase.initializeApp(CFG);var db=firebase.firestore();
+  db.doc('track/'+t).onSnapshot(function(s){if(!s.exists)return fail('Заказ не найден','Возможно, ссылка устарела. Напишите нам — подскажем статус.');render(s.data())},
+   function(){fail('Не получилось загрузить','Проверьте интернет и обновите страницу или напишите нам.')});
+ }catch(e){fail('Не получилось загрузить','Обновите страницу или напишите нам.')}}
+</script>
+</body>
+</html>

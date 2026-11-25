@@ -35,6 +35,8 @@ service cloud.firestore {
     match /goals/{id}     { allow read, write: if staff(); }
     match /chat/{id}      { allow read, write: if staff(); }
     match /mchat/{id}     { allow read, write: if staff(); }
+    // Отслеживание заказа клиентом: читать один документ по секретной ссылке может любой, список — никто
+    match /track/{id}     { allow get: if true; allow list: if false; allow write: if staff(); }
     match /incidents/{id} { allow read, write: if staff();
       match /msgs/{m}     { allow read, write: if staff(); } }
   }

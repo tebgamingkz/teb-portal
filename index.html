@@ -749,7 +749,7 @@ async function runPatches(){if(patchBusy||!S.isAdmin||!Array.isArray(S.patchesDo
   const done=name=>{S.loaded.add(name);if(!S.ready&&['team','orders'].every(n=>S.loaded.has(n))){S.ready=true;clearTimeout(timer)}schedulePaint()};
   const subCol=(name,q,map)=>q.onSnapshot(snap=>{map(snap.docs.map(d=>({id:d.id,...d.data()})));if(!snap.metadata.fromCache)done(name);else schedulePaint()},e=>{done(name)});
   subCol('team',col('team'),a=>S.team=a.sort((x,y)=>(x.name||'').localeCompare(y.name||'','ru')));
-  subCol('orders',col('orders').orderBy('createdAt','desc').limit(500),a=>{S.orders=a;setTimeout(()=>{if(typeof runPatches==='function')runPatches()},0)});
+  subCol('orders',col('orders').orderBy('createdAt','desc').limit(500),a=>{S.orders=a;trackSync(a);setTimeout(()=>{if(typeof runPatches==='function')runPatches()},0)});
   subCol('notes',col('notes').orderBy('updatedAt','desc').limit(1000),a=>S.notes=a);
   subCol('incidents',col('incidents').orderBy('createdAt','desc').limit(200),a=>S.incidents=a);
   subCol('pre',col('leads').where('pre','==',true).limit(500),a=>S.pre=a.filter(x=>x.pre));
@@ -1234,6 +1234,19 @@ async function relayIncident(i,firstMsg){const url=S.config.relayUrl;if(!url||S.
    L.push('',`👤 Создал: ${nameOf(i.createdBy)||'—'}`);
    await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({token,kind:'incident',incident:{id:i.id},text:L.join('\n')})});
   }catch(e){console.warn('relay inc',e)}}
+/* ---------- отслеживание заказа клиентом ---------- */
+const TRACK_BASE='https://tebgamingkz.github.io/teb-portal/track/?t=';
+const trackUrl=o=>TRACK_BASE+o.trackId;
+function trackData(o){const k=kitOf(o.kitId);const sh=dtOf(o.dtype);
+  return {num:String(o.num||''),title:o.product||k?.name||'Игровой компьютер',qty:+o.qty||1,color:o.caseModel||'',city:o.city||'',
+   pickup:o.delivery==='pickup',how:o.delivery==='pickup'?'Самовывоз':(sh?sh.t:(DELIV[o.delivery]||'Доставка')),
+   deliveryDate:o.deliveryDate||'',deliverySlot:o.deliverySlot||'',stage:o.stage,stageAt:o.stageAt||Date.now(),createdAt:o.createdAt||Date.now(),updatedAt:Date.now()}}
+const trackSig=o=>[o.stage,o.deliveryDate,o.deliverySlot,o.city,o.caseModel,o.delivery,o.product].join('|');
+const _tsig={};
+function trackSync(list){for(const o of list){if(!o.trackId)continue;const g=trackSig(o);
+  if(_tsig[o.id]===undefined){_tsig[o.id]=g;continue}
+  if(_tsig[o.id]!==g){_tsig[o.id]=g;doc('track/'+o.trackId).set({...trackData(o),['st_'+o.stage]:o.stageAt||Date.now()},{merge:true}).catch(()=>{})}}}
+function newToken(){const a=new Uint8Array(9);(crypto||window.msCrypto).getRandomValues(a);return Array.from(a,b=>'abcdefghjkmnpqrstuvwxyz23456789'[b%31]).join('')}
 function chatText(o){
   const k=kitOf(o.kitId);const ups=(o.upgrades||[]).map(upOf).filter(Boolean);
   const L=[`Номер заказа: ${o.num}`,`📦 Товар - ${o.product||k?.name||''}${(+o.qty||1)>1?` × ${o.qty} шт`:''}`];
@@ -1902,6 +1915,7 @@ SHEET.order=id=>{
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn" data-act="editOrder" data-id="${esc(o.id)}">Изменить</button>`;
   if(canManage||S.isAdmin)actions+=`<button class="btn" data-act="warrantyPdf" data-id="${esc(o.id)}">📄 Скачать гарантию</button>`;
   if(S.isAdmin&&!S.viewAs&&!['delivered','cancelled'].includes(o.stage))actions+=`<button class="btn ${S.f.ad===o.id?'good':''}" data-act="adminDone" data-id="${esc(o.id)}">${S.f.ad===o.id?'Точно закрыть? Ещё раз':'✓ Выполнено (закрыть)'}</button>`;
+  if(canManage&&o.stage!=='cancelled')actions+=`<button class="btn" data-act="trackLink" data-id="${esc(o.id)}">🔗 Ссылка для клиента</button>`;
   if(canManage)actions+=`<button class="btn" data-act="copyChat" data-id="${esc(o.id)}">📋 Для чата заказов</button><button class="btn" data-act="copyOrder" data-id="${esc(o.id)}">Скопировать заказ клиенту</button>`;
   actions+=`<button class="btn" data-act="incFromOrder" data-id="${esc(o.id)}">Инцидент</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn danger" data-act="cancelOrder" data-id="${esc(o.id)}">Отменить</button>`;
@@ -2465,6 +2479,12 @@ async function bulkSet(kind){const ids=[...(S.sel||[])];if(!ids.length)return;if
 ACT.bulkDone=()=>bulkSet('done');ACT.bulkCancel=()=>bulkSet('cancel');
 ACT.adminDone=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(S.f.ad!==o.id){S.f.ad=o.id;clearTimeout(ACT._ad);ACT._ad=setTimeout(()=>{S.f.ad=null;schedulePaint()},5000);return schedulePaint()}
   S.f.ad=null;if(await upd(doc('orders/'+o.id),{stage:'delivered',stageAt:Date.now(),history:hist(o,'Закрыт админом как выполненный')})){closeSheet();toast('Заказ закрыт как выполненный')}};
+ACT.trackLink=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;
+  let t=o.trackId;
+  if(!t){t=newToken();const base={...trackData({...o,trackId:t}),st_created:o.createdAt||Date.now(),['st_'+o.stage]:o.stageAt||Date.now()};
+   try{await doc('track/'+t).set(base);}catch(e){return toast('Не удалось создать ссылку: '+errText(e))}
+   if(!(await upd(doc('orders/'+o.id),{trackId:t})))return;_tsig[o.id]=trackSig(o)}
+  const url=TRACK_BASE+t;copyText(`Ваш заказ №${o.num} в TEB GAMING — статус можно смотреть здесь:\n${url}`,'Ссылка скопирована — отправьте клиенту')};
 ACT.copyChat=d=>{const o=S.orders.find(x=>x.id===d.id)||(S.lastCreated?.id===d.id?S.lastCreated:null);if(o)copyText(chatText(o),'Скопировано — вставьте в чат заказов')};
 ACT.recalc=(d,el)=>{const f=el.closest('form');f.dataset.manual='';recalcOrderForm(f)};
 ACT.editUp=d=>openSheet('up',d.id||null);
