@@ -525,6 +525,7 @@ const IC={
  orders:'<path d="M3 7.5 12 3l9 4.5-9 4.5-9-4.5Z"/><path d="M3 7.5v9L12 21l9-4.5v-9M12 12v9"/>',
  crm:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.6a3.5 3.5 0 0 1 0 6.8M18.2 14.8c1.9.8 3 2.5 3.4 5.2"/>',
  build:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 2.5v3.5M14.5 2.5v3.5M9.5 18v3.5M14.5 18v3.5M2.5 9.5H6M2.5 14.5H6M18 9.5h3.5M18 14.5h3.5"/>',
+ pre:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9 2.5h6"/>',
  inc:'<path d="M12 3.5 21.5 20h-19L12 3.5Z"/><path d="M12 10v4.5M12 17.3v.1"/>',
  chat:'<path d="M4 5h16v11H9.5L4 20V5Z"/>',
  pay:'<path d="M12 3v18M16.5 7.5c0-1.7-2-3-4.5-3s-4.5 1.3-4.5 3 2 2.6 4.5 3 4.5 1.4 4.5 3.2-2 3-4.5 3-4.5-1.3-4.5-3"/>',
@@ -637,20 +638,20 @@ const num=i.orderNum||o?.num||'';const cy=i.city||o?.city||'',ad=i.address||o?.a
 return `${head}${i.item?' '+i.item:''}${num?' по заказу №'+num:''}\n\n❗ Причина: ${i.title||'—'}\n\n🏙️ Адрес: ${addr||'—'}\n📞 Номер: ${ph||'—'}\n⌛ Время - ${i.when||'уточним днем завтра'}\n\n✅ TEB GAMING — гарантия на связи`}
 const SHIP={kaspi:'Kaspi Доставка',indrive:'InDrive',pickup:'Самовывоз',courier:'Наш курьер'};
 const WEEK=['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
-const TAB_T={dash:'Сводка',orders:'Заказы',notes:'Заметки',calc:'Калькулятор',mchat:'Чат менеджеров',pay:'Зарплата',bpay:'Зарплата',crm:'CRM',build:'Сборка',inc:'Инциденты',chat:'Чат сборки',courier:'Доставки',stock:'Склад',money:'Финансы',team:'Команда',sched:'График'};
-const TAB_TRUCK={dash:'Бортовик',orders:'Грузы',notes:'Путевой лист',calc:'Тариф',mchat:'Рация менеджеров',pay:'Рейсовые',bpay:'Рейсовые',build:'Погрузка',inc:'ДТП и поломки',chat:'Рация CB',courier:'Рейсы',stock:'Терминал',money:'Касса',team:'Автоколонна',sched:'Смены'};
+const TAB_T={dash:'Сводка',orders:'Заказы',pre:'Предзаказы',notes:'Заметки',calc:'Калькулятор',mchat:'Чат менеджеров',pay:'Зарплата',bpay:'Зарплата',crm:'CRM',build:'Сборка',inc:'Инциденты',chat:'Чат сборки',courier:'Доставки',stock:'Склад',money:'Финансы',team:'Команда',sched:'График'};
+const TAB_TRUCK={dash:'Бортовик',orders:'Грузы',pre:'Бронь рейса',notes:'Путевой лист',calc:'Тариф',mchat:'Рация менеджеров',pay:'Рейсовые',bpay:'Рейсовые',build:'Погрузка',inc:'ДТП и поломки',chat:'Рация CB',courier:'Рейсы',stock:'Терминал',money:'Касса',team:'Автоколонна',sched:'Смены'};
 const tabT=t=>(typeof SKIN!=='undefined'&&SKIN==='truck'&&TAB_TRUCK[t])||TAB_T[t];
 const ROLE_TABS={
- admin:['dash','orders','notes','calc','mchat','build','inc','chat','courier','stock','money','team'],
- manager:['notes','orders','calc','mchat','pay','build','inc','stock','sched'],
+ admin:['dash','orders','pre','notes','calc','mchat','build','inc','chat','courier','stock','money','team'],
+ manager:['notes','orders','pre','calc','mchat','pay','build','inc','stock','sched'],
  builder:['build','bpay','inc','stock','sched'],
  courier:['courier','sched']};
 
 /* ---------- state ---------- */
 const S={db:null,user:null,assets:null,uid:null,me:null,isAdmin:false,viewAs:null,ready:false,err:null,
- team:[],orders:[],leads:[],notes:[],mchat:[],incidents:[],stock:[],kits:[],upgrades:[],costs:{},chat:[],requests:[],days:{},expenses:[],margins:{},
+ team:[],orders:[],leads:[],pre:[],notes:[],mchat:[],incidents:[],stock:[],kits:[],upgrades:[],costs:{},chat:[],requests:[],days:{},expenses:[],margins:{},
  schedule:{},plan:{},bonus:{},goals:{},paylog:{},config:{goal:35000000,rate:470,startDay:5},myReq:null,loaded:new Set(),
- tab:null,f:{orders:'active',crm:'open',inc:'open',courier:null,stockQ:'',ordersQ:'',crmQ:'',crmMine:false,money:null},
+ tab:null,f:{pre:'wait',preQ:'',orders:'active',crm:'open',inc:'open',courier:null,stockQ:'',ordersQ:'',crmQ:'',crmMine:false,money:null},
  sheet:null,incMsgs:[],incUnsub:null,calc:{kitId:'begemot',ups:[]}};
 try{const mr=localStorage.getItem('teb.mr');if(mr)S.f.mr=JSON.parse(mr)}catch(e){}
 try{const t=localStorage.getItem('teb.tab');if(t)S.tab=t;const v=localStorage.getItem('teb.viewAs');if(v)S.viewAs=v}catch(e){}
@@ -751,6 +752,7 @@ async function runPatches(){if(patchBusy||!S.isAdmin||!Array.isArray(S.patchesDo
   subCol('orders',col('orders').orderBy('createdAt','desc').limit(500),a=>{S.orders=a;setTimeout(()=>{if(typeof runPatches==='function')runPatches()},0)});
   subCol('notes',col('notes').orderBy('updatedAt','desc').limit(1000),a=>S.notes=a);
   subCol('incidents',col('incidents').orderBy('createdAt','desc').limit(200),a=>S.incidents=a);
+  subCol('pre',col('leads').where('pre','==',true).limit(500),a=>S.pre=a.filter(x=>x.pre));
   subCol('stock',col('stock'),a=>S.stock=a.sort((x,y)=>(x.cat||'').localeCompare(y.cat||'','ru')||(x.name||'').localeCompare(y.name||'','ru')));
   subCol('kits',col('kits'),a=>S.kits=a);
   subCol('upgrades',col('upgrades'),a=>S.upgrades=a.sort((x,y)=>(x.order??999)-(y.order??999)));
@@ -835,11 +837,12 @@ function badgeFor(t){
   if(t==='mchat')return S.isAdmin&&!S.viewAs?S.mchat.filter(m=>m.kind==='custom'&&m.status!=='priced').length:S.mchat.filter(m=>m.kind==='custom'&&m.status==='priced'&&m.by===whoId()&&!m.seen).length;
   if(t==='build')return S.orders.filter(o=>o.stage==='queue'&&!o.builderId).length;
   if(t==='courier'){const c=myCourierCity();return S.orders.filter(o=>o.courierCity&&(!c||o.courierCity===c)&&['packed','shipped','delivered'].includes(o.stage)&&(o.courier?.status||'wait')!=='handed').length}
+  if(t==='pre')return S.pre.filter(p=>(p.status||'wait')==='wait').length;
   if(t==='notes'){const me=whoId();return S.notes.filter(n=>n.status!=='done'&&n.remindAt&&n.remindAt<now&&(S.isAdmin&&!S.viewAs?true:n.createdBy===me)).length}
   return 0;
 }
 function fabFor(tab,r){
-  const map={orders:'newOrder',crm:'newLead',inc:'newIncident'};
+  const map={orders:'newOrder',crm:'newLead',inc:'newIncident',pre:'newPre'};
   if(tab==='build'&&r!=='builder')return '';
   const a=map[tab];if(!a)return'';
   if(tab==='orders'&&r==='courier')return'';
@@ -1322,10 +1325,40 @@ function sheetNote(id){const n=S.notes.find(x=>x.id===id);if(!n)return null;
    <div class="btns"><button class="btn primary" type="submit" style="flex:1">Сохранить</button><button class="btn danger" type="button" data-act="noteDel" data-id="${esc(id)}">Удалить</button></div>
   </form>`};
 
+const PRE_ST={wait:['Ждёт','warn'],done:['Оформлен','ok'],lost:['Отказ','']};
+const PRE_PAY={kaspi_inst:'Kaspi 0-0-24',halyk:'Halyk рассрочка',cash:'Наличные'};
+const INST_START='2026-11-26',INST_END='2026-12-07';
+function preWa(p){const k=kitOf(p.kitId);const nm=(p.name||'').split(' ')[0];const now=todayKey();
+  const live=now>=INST_START&&now<=INST_END;
+  return 'Здравствуйте'+(nm?', '+nm:'')+'! Это TEB GAMING. '+(live?'Рассрочка Kaspi 0-0-24 уже идёт — до 7 декабря.':'Рассрочка Kaspi 0-0-24 стартует 26 ноября и идёт до 7 декабря.')+
+   ' Ваш «'+([k?.name,p.product].filter(Boolean).join(', ')||'Бегамот')+'»'+(p.color?' ('+p.color+')':'')+' за вами'+(+p.prepay?', предоплата '+nfmt(p.prepay)+' ₸ учтена':'')+'. '+(live?'Оформляем сейчас?':'26-го напишем первыми — оформим за 5 минут.')}
+VIEW.pre=()=>{const f=S.f.pre,q=(S.f.preQ||'').toLowerCase().trim();const all=S.pre;
+  const sets={wait:['Ждут',p=>(p.status||'wait')==='wait'],paid:['С предоплатой',p=>(p.status||'wait')==='wait'&&+p.prepay>0],nopay:['Без предоплаты',p=>(p.status||'wait')==='wait'&&!(+p.prepay>0)],done:['Оформлены',p=>p.status==='done'],lost:['Отказ',p=>p.status==='lost'],all:['Все',()=>true]};
+  let list=all.filter((sets[f]||sets.wait)[1]);if(q)list=list.filter(p=>[p.name,p.phone,p.city,p.note,p.product].join(' ').toLowerCase().includes(q));
+  list.sort((a,b)=>(+b.prepay>0)-(+a.prepay>0)||(b.createdAt||0)-(a.createdAt||0));
+  const wait=all.filter(sets.wait[1]),paid=wait.filter(p=>+p.prepay>0);const sum=paid.reduce((a,p)=>a+(+p.prepay||0),0);
+  const now=todayKey();const live=now>=INST_START&&now<=INST_END;
+  return `<div class="section-h"><h2>${esc(tabT('pre'))}</h2><span class="spacer"></span><span class="muted small">${live?'рассрочка идёт до 07.12':'рассрочка с 26.11 по 07.12'}</span></div>
+  <div class="kpis">
+   <div class="kpi"><span class="eyebrow">Ждут рассрочку</span><span class="v">${wait.length}</span><span class="s">из них с предоплатой ${paid.length}</span></div>
+   <div class="kpi"><span class="eyebrow">Предоплат</span><span class="v num">${money(sum)}</span><span class="s">оформлено ${all.filter(sets.done[1]).length}</span></div>
+  </div>
+  <input class="inp" id="preQ" data-keep data-input="preQ" placeholder="Поиск: имя, телефон, город" value="${esc(S.f.preQ||'')}">
+  <div class="chips">${Object.entries(sets).map(([k,[tt,fn]])=>`<button class="chip" data-act="fPre" data-v="${k}" aria-pressed="${f===k}">${tt}<span class="n">${all.filter(fn).length}</span></button>`).join('')}</div>
+  <div class="list">${list.length?list.map(preRow).join(''):`<div class="empty">${all.length?'Здесь пусто.':'Предзаказов пока нет. Нажмите «+» и добавьте тех, кто ждёт рассрочку.'}</div>`}</div>`};
+function preRow(p){const st=PRE_ST[p.status||'wait'];const k=kitOf(p.kitId);const ph=String(p.phone||'').replace(/\D/g,'');
+  return `<div class="row" style="cursor:default;flex-wrap:wrap">
+   <div class="main" data-act="openPre" data-id="${esc(p.id)}" style="cursor:pointer;min-width:0">
+    <div class="t1"><b>${esc(p.name||'Без имени')}</b>${+p.prepay>0?`<span class="pill ok num">предоплата ${money(p.prepay)}</span>`:'<span class="pill">без предоплаты</span>'}<span class="pill ${st[1]}">${st[0]}</span></div>
+    <div class="t2">${esc([[k?.name,p.product].filter(Boolean).join(', '),p.color,p.city,PRE_PAY[p.payPlan]].filter(Boolean).join(' · '))}</div>
+    <div class="t2 small muted">${esc([p.phone,nameOf(p.managerId)!=='—'?nameOf(p.managerId):'',p.createdAt?fmtDay(dayKey(p.createdAt)):'',p.note].filter(Boolean).join(' · '))}</div>
+   </div>
+   ${(p.status||'wait')==='wait'?`<div class="btns" style="width:100%;margin-top:6px">${ph?`<a class="btn sm" href="https://wa.me/${ph}?text=${encodeURIComponent(preWa(p))}" target="_blank" rel="noopener">WhatsApp</a>`:''}<button class="btn sm primary" data-act="preToOrder" data-id="${esc(p.id)}">Оформить заказ</button></div>`:p.orderNum?`<div class="small muted" style="width:100%">Заказ №${esc(p.orderNum)}</div>`:''}
+  </div>`}
 VIEW.crm=()=>{
   const now=Date.now(),t=todayKey();const f=S.f.crm,q=(S.f.crmQ||'').toLowerCase().trim();
   const me=whoId();
-  let base=S.leads;if(S.f.crmMine)base=base.filter(l=>l.managerId===me);
+  let base=S.leads.filter(l=>!l.pre);if(S.f.crmMine)base=base.filter(l=>l.managerId===me);
   const sets={open:['В работе',l=>!['won','lost'].includes(l.stage)],over:['Просрочено',l=>!['won','lost'].includes(l.stage)&&l.nextAt&&l.nextAt<now],visit:['Приедут',l=>l.stage==='visit'||(l.visitAt&&l.visitAt>now-12*H&&!['won','lost'].includes(l.stage))],bad:['Плохо ответили',l=>l.badReply],...Object.fromEntries(LEAD_ST.map(s=>[s.id,[s.t,l=>l.stage===s.id]])),all:['Все',()=>true]};
   let list=base.filter(sets[f]?.[1]||sets.open[1]);
   if(q)list=list.filter(l=>[l.name,l.phone,l.note].join(' ').toLowerCase().includes(q));
@@ -2109,6 +2142,24 @@ function recalcOrderForm(f,src){
   f.querySelector('#of-cour').textContent=unpaid&&deliv?(cc?`После упаковки заказ уйдёт курьеру ${r.city}. Курьер возьмёт ${money(due)}.`:'Оплата при получении в этом городе — курьера нет, отправим через Kaspi или InDrive.'):(!deliv?'Самовывоз: после упаковки менеджер отмечает «Выдан клиенту».':'');
 }
 
+SHEET.pre=id=>{const p=id?S.pre.find(x=>x.id===id):{status:'wait',payPlan:'kaspi_inst',kitId:'begemot',color:'чёрный',managerId:member()?.id||''};if(id&&!p)return null;
+  const mgrs=S.team.filter(m=>['manager','admin'].includes(m.role));
+  return `${head(id?esc(p.name||'Предзаказ'):'Новый предзаказ',id?'добавлен '+fmtDT(p.createdAt):'кто ждёт рассрочку 0-0-24')}
+  <form class="form" data-form="pre" data-id="${esc(id||'')}">
+   <div class="grid2"><div class="field"><label for="pf-n">Имя</label><input class="inp" id="pf-n" name="name" value="${esc(p.name||'')}" ${id?'':'autofocus'}></div>
+    <div class="field"><label for="pf-p">Телефон</label><input class="inp num" id="pf-p" name="phone" inputmode="tel" required value="${esc(p.phone||'')}"></div></div>
+   <div class="grid2"><div class="field"><label for="pf-k">Комплект</label><select class="inp" id="pf-k" name="kitId">${S.kits.filter(k=>k.active!==false).map(k=>opt(k.id,k.name,p.kitId)).join('')}<option value="" ${p.kitId?'':'selected'}>Другое</option></select></div>
+    <div class="field"><label for="pf-c">Цвет</label><select class="inp" id="pf-c" name="color">${['чёрный','белый'].map(c=>opt(c,c,p.color)).join('')}</select></div></div>
+   <div class="field"><label for="pf-pr">Что именно / доп. опции</label><input class="inp" id="pf-pr" name="product" value="${esc(p.product||'')}" placeholder="Бегамот SETUP, SSD 1 ТБ, RTX 5060 Ti"></div>
+   <div class="grid2"><div class="field"><label for="pf-ci">Город</label><input class="inp" id="pf-ci" name="city" value="${esc(p.city||'')}" placeholder="Алматы"></div>
+    <div class="field"><label for="pf-pp">Как будет платить</label><select class="inp" id="pf-pp" name="payPlan">${Object.entries(PRE_PAY).map(([v,t])=>opt(v,t,p.payPlan)).join('')}</select></div></div>
+   <div class="grid2"><div class="field"><label for="pf-pre">Предоплата, ₸</label><input class="inp num" id="pf-pre" name="prepay" inputmode="numeric" value="${esc(p.prepay||'')}" placeholder="0 — без предоплаты"></div>
+    <div class="field"><label for="pf-pd">Когда внёс</label><input class="inp" type="date" id="pf-pd" name="prepayDate" value="${esc(p.prepayDate||'')}"></div></div>
+   <div class="grid2"><div class="field"><label for="pf-m">Менеджер</label><select class="inp" id="pf-m" name="managerId"><option value="">—</option>${mgrs.map(m=>opt(m.id,m.name,p.managerId)).join('')}</select></div>
+    <div class="field"><label for="pf-s">Статус</label><select class="inp" id="pf-s" name="status">${Object.entries(PRE_ST).map(([v,[t]])=>opt(v,t,p.status||'wait')).join('')}</select></div></div>
+   <div class="field"><label for="pf-no">Комментарий</label><input class="inp" id="pf-no" name="note" value="${esc(p.note||'')}" placeholder="подарок кронштейн, связаться после 18:00"></div>
+   <div class="btns"><button class="btn primary" type="submit" style="flex:1">Сохранить</button>${id?`<button class="btn danger" type="button" data-act="preDel" data-id="${esc(id)}">Удалить</button>`:''}</div>
+  </form>`};
 SHEET.lead=id=>{
   const l=id?S.leads.find(x=>x.id===id):{stage:'new',quality:'warm',source:SOURCES[0],managerId:member()?.id||''};if(id&&!l)return null;
   const mgrs=S.team.filter(m=>['manager','admin'].includes(m.role));
@@ -2331,6 +2382,13 @@ ACT.newOrder=()=>openSheet('orderForm',null);
 ACT.editOrder=d=>openSheet('orderForm',{id:d.id});
 ACT.openLead=d=>openSheet('lead',d.id);
 ACT.newLead=()=>openSheet('lead',null);
+ACT.newPre=()=>openSheet('pre',null);
+ACT.openPre=d=>openSheet('pre',d.id);
+ACT.fPre=d=>{S.f.pre=d.v;paint()};
+ACT.preDel=async(d,el)=>{if(el.dataset.sure!=='1'){el.dataset.sure='1';el.textContent='Точно удалить?';return}try{await doc('leads/'+d.id).delete();closeSheet();toast('Удалено')}catch(e){toast(errText(e))}};
+ACT.preToOrder=d=>{const p=S.pre.find(x=>x.id===d.id);if(!p)return;const pp=+p.prepay||0;
+  openSheet('orderForm',{prefill:{client:p.name||'',phone:p.phone||'',kitId:p.kitId||undefined,city:p.city||'',payType:p.payPlan==='cash'?'cash':(p.payPlan||'kaspi_inst'),
+   paid:pp?'partial':undefined,prepaid:pp||undefined,note:[p.product,p.color?'цвет: '+p.color:'',pp?'предоплата '+nfmt(pp)+' ₸ ('+(p.prepayDate||'')+')':'',p.note].filter(Boolean).join(' · '),preId:p.id}})};
 ACT.newIncident=d=>openSheet('newIncident',{kind:d?.v||(S.f.inc==='repl'?'replace':'problem')});
 ACT.incFromOrder=d=>openSheet('newIncident',{orderId:d.id});
 ACT.openInc=d=>{
@@ -2492,6 +2550,7 @@ FORM.order=async(fd,f)=>{
   const full={...data,stage:'queue',stageAt:now,createdAt:now,createdBy:whoId(),builderId:null,setup:{},media:[],notes:note?[{at:now,by:whoId(),t:note}]:[],history:[{at:now,by:whoId(),t:'Создан'}],leadId:prefill?.leadId||null};
   if(await put(ref,full)){
     if(prefill?.leadId)await upd(doc('leads/'+prefill.leadId),{stage:'won',updatedAt:now});
+    if(prefill?.preId)await upd(doc('leads/'+prefill.preId),{status:'done',orderNum:data.num,orderId:ref.id,updatedAt:now});
     if(prefill?.noteId)await upd(doc('notes/'+prefill.noteId),{status:'done',tag:'Купил',updatedAt:now});
     sysChat(`Новый заказ №${data.num}: ${data.product||kitOf(data.kitId)?.name||''}${data.urgent?' · СРОЧНО':''}`);
     toast('Заказ добавлен в очередь сборки');S.lastCreated={...full,id:ref.id};openSheet('created',ref.id);relayOrder({...full,id:ref.id})}
@@ -2504,6 +2563,13 @@ FORM.noteEdit=async(fd,f)=>{const data={phone:(fd.get('phone')||'').trim(),name:
 FORM.note=async(fd,f)=>{const t=(fd.get('t')||'').trim();if(!t)return;const o=S.orders.find(x=>x.id===f.dataset.id);if(!o)return;
   const el=f.querySelector('input');if(await upd(doc('orders/'+o.id),{notes:[...(o.notes||[]),{at:Date.now(),by:whoId(),t}]}))el.value=''};
 FORM.margin=async(fd,f)=>{const v=num(fd.get('margin'));if(v==null)return;if(await put(doc('margins/'+f.dataset.id),{margin:v,at:Date.now()}))toast('Маржа сохранена')};
+FORM.pre=async(fd,f)=>{const id=f.dataset.id;const now=Date.now();
+  const data={pre:true,name:(fd.get('name')||'').trim(),phone:(fd.get('phone')||'').trim(),kitId:fd.get('kitId')||'',color:fd.get('color')||'',product:(fd.get('product')||'').trim(),city:(fd.get('city')||'').trim(),
+   payPlan:fd.get('payPlan')||'kaspi_inst',prepay:num(fd.get('prepay'))||0,prepayDate:fd.get('prepayDate')||'',managerId:fd.get('managerId')||'',status:fd.get('status')||'wait',note:(fd.get('note')||'').trim(),updatedAt:now};
+  if(!data.phone)return toast('Укажите телефон');
+  if(data.prepay&&!data.prepayDate)data.prepayDate=todayKey();
+  const ok=id?await upd(doc('leads/'+id),data):await put(col('leads').doc(),{...data,createdAt:now,createdBy:whoId()});
+  if(ok){closeSheet();toast(id?'Сохранено':'Предзаказ добавлен')}};
 FORM.lead=async(fd,f)=>{const id=f.dataset.id;const now=Date.now();
   const data={name:(fd.get('name')||'').trim(),phone:(fd.get('phone')||'').trim(),stage:fd.get('stage'),quality:fd.get('quality'),source:fd.get('source'),managerId:fd.get('managerId')||'',interest:(fd.get('interest')||'').trim(),nextAt:fromLocalInput(fd.get('nextAt')),visitAt:fromLocalInput(fd.get('visitAt')),lostReason:fd.get('lostReason')||'',note:(fd.get('note')||'').trim(),updatedAt:now};
   if(S.isAdmin){data.badReply=!!fd.get('badReply');data.qcNote=(fd.get('qcNote')||'').trim()}
