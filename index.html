@@ -592,6 +592,8 @@ const PAY={kaspi:'Kaspi',kaspi_inst:'Kaspi рассрочка',halyk:'Halyk ра
 const PAY_METHODS=['kaspi_inst','kaspi','halyk','cash','transfer','mixed'];
 const PAY_F={kaspi:.85,kaspi_inst:.85,halyk:.77,cash:1,transfer:1,cod:1};
 const INST_PRICE=p=>['kaspi','kaspi_inst','halyk'].includes(p);
+/* Wi-Fi адаптер в подарок ко всем новым заказам (26.11) */
+const AUTO_GIFT='Wi-Fi адаптер';
 const GIFTS={'Wi-Fi адаптер':3500,'Кронштейн':6500,'Коврик':0,'Кабель 5 м':2000,'Кабель 10 м':3000,'Кабель 15 м':3000,'Кабель 20 м':0};
 const CASES=['WaterCube White','WaterCube Black','A310 White','A310 Black'];
 const CASES_MORE=['A275 White','A275 Black','RAPTOR Black'];
@@ -2117,7 +2119,7 @@ SHEET.orderForm=arg=>{
      <div class="field"><label>Остаток через</label><div class="checks">${['kaspi','halyk'].map(v=>radio('mixVia',v,viaName(v),o.mixVia||'kaspi')).join('')}</div></div></div></div>
    <div class="field"><label>Статус оплаты</label><div class="checks">${radio('paid','paid','Оплачен полностью',paid)}${radio('paid','partial','Оплачен частично',paid)}${radio('paid','cod','Не оплачен (при получении)',paid)}</div>
     <div class="grid2" data-show="prepaid"><div class="field"><label for="of-pre">Уже оплачено, ₸</label><input class="inp num" id="of-pre" name="prepaid" inputmode="numeric" value="${esc(o.prepaid||'')}"></div><div class="field"><label>Остаток к оплате</label><div class="inp num" id="of-rest" style="display:flex;align-items:center">—</div></div></div></div>
-   <div class="field"><label>Подарки</label><div class="checks">${Object.keys(GIFTS).map(g=>`<label class="check"><input type="checkbox" name="gifts" value="${esc(g)}" ${(o.gifts||[]).includes(g)?'checked':''}>${esc(g)}</label>`).join('')}</div></div>
+   <div class="field"><label>Подарки</label><div class="checks">${Object.keys(GIFTS).map(g=>`<label class="check"><input type="checkbox" name="gifts" value="${esc(g)}" ${(o.gifts||[]).includes(g)||(!arg?.id&&g===AUTO_GIFT)?'checked':''}>${esc(g)}</label>`).join('')}</div></div>
    <div class="field"><label for="of-sd">Дата продажи</label><input class="inp" type="date" id="of-sd" name="soldDate" required value="${esc(o.soldDate||(o.createdAt?dayKey(o.createdAt):dayKey(Date.now())))}" max="${dayKey(Date.now())}"><div class="small muted">По этой дате заказ идёт в аналитику и зарплату. Продал вчера — поставь вчера.</div></div>
    <div class="field"><label for="of-sold">Кто продал</label><select class="inp" id="of-sold" name="soldBy">${S.team.filter(m=>['manager','admin'].includes(m.role)).map(m=>opt(m.id,m.name,o.soldBy||o.createdBy||whoId())).join('')}${S.team.some(m=>m.id===whoId())?'':opt(whoId(),nameOf(whoId()),o.soldBy||whoId())}</select></div>
    <label class="check" style="align-self:flex-start"><input type="checkbox" name="urgent" ${o.urgent?'checked':''}>Срочно</label>
@@ -2568,6 +2570,7 @@ FORM.order=async(fd,f)=>{
     prepaid:r.paid==='partial'?(num(fd.get('prepaid'))||0):0,deliveryFee:r.delivery==='pickup'?0:(num(fd.get('deliveryFee'))||0),
     deliveryDate:r.delivery!=='pickup'&&TIME_CITIES.includes(r.city)?(fd.get('deliveryDate')||''):'',deliverySlot:r.delivery!=='pickup'&&TIME_CITIES.includes(r.city)?(fd.get('deliverySlot')||''):'',
     discount:r.payType==='cash'&&r.discount,mixCash:r.payType==='mixed'?r.mixCash:0,mixVia:r.payType==='mixed'?r.mixVia:'',soldDate:fd.get('soldDate')||dayKey(Date.now()),qty:r.qty,amount:num(fd.get('amount'))||0,amountManual:f.dataset.manual==='1',gifts:fd.getAll('gifts'),urgent:!!fd.get('urgent'),soldBy:fd.get('soldBy')||whoId()};
+  if(!id&&!data.gifts.includes(AUTO_GIFT))data.gifts.unshift(AUTO_GIFT);
   if(!data.amount)return toast('Укажите сумму заказа');
   data.courierCity=r.paid!=='paid'&&r.delivery!=='pickup'&&CITIES.includes(r.city)?r.city:null;
   if(r.paid==='partial'&&!data.prepaid)return toast('Укажите, сколько уже оплачено');
