@@ -663,6 +663,8 @@ const nameOf=id=>id==='admin'?'Админ':(S.team.find(m=>m.id===id)?.name||'�
 const builders=()=>S.team.filter(m=>m.role==='builder'&&m.active!==false).sort((a,b)=>(!!a.placeholder)-(!!b.placeholder));
 const realBuilders=()=>builders().filter(b=>!b.placeholder);
 const isLead=()=>!!member()?.lead||(S.isAdmin&&member()?.role!=='builder');
+/* Назначать и переназначать сборки может любой сборщик, старший и админ */
+const canAssign=()=>S.isAdmin||isLead()||member()?.role==='builder';
 const rate=()=>+S.config.rate||470;
 const kitOf=id=>S.kits.find(k=>k.id===id);
 const upOf=id=>S.upgrades.find(u=>u.id===id);
@@ -1431,7 +1433,7 @@ VIEW.build=()=>{
      <div class="main" data-act="openOrder" data-id="${esc(o.id)}" style="cursor:pointer"><div class="t1"><span class="num">№${esc(o.num||'—')}</span>${o.urgent?'<span class="pill bad">срочно</span>':''}${shipPill(o)}</div>
      <div class="t2">${esc([o.product||kitOf(o.kitId)?.name,o.caseModel||o.caseColor,o.city].filter(Boolean).join(' · '))}</div></div>
      ${r==='builder'?`<button class="btn sm primary" data-act="take" data-id="${esc(o.id)}">Взять</button>`:''}
-     ${lead?`<button class="btn sm" data-act="assign" data-id="${esc(o.id)}">Назначить</button>`:''}
+     ${canAssign()?`<button class="btn sm" data-act="assign" data-id="${esc(o.id)}">Назначить</button>`:''}
     </div>`).join(''):'<div class="empty">Очередь пуста.</div>'}</div>
   ${r!=='builder'||lead?`<div class="section-h"><h2>Загрузка сборщиков</h2></div>
   <div class="chips">${load.map(([b,n])=>`<span class="chip" style="cursor:default">${esc(b.name)}${b.lead?' ★':''}<span class="n">${n}</span></span>`).join('')||'<span class="muted small">Добавьте сборщиков в «Команде»</span>'}</div>
@@ -1483,7 +1485,7 @@ function bcard(o){const P=stageProgress(o);const st=o.stage==='queue'?'Ждёт 
    ${btrack(o,false)}
    <div class="bfoot"><span>${esc(o.city||'')}</span><span>на этапе ${ago(o.stageAt||o.createdAt)}</span></div></button>`}
 function buildBuilderView(){
-  const me=bMe();const mm=S.team.find(m=>m.id===me);const lead=S.isAdmin?!!mm?.lead:isLead();
+  const me=bMe();const mm=S.team.find(m=>m.id===me);const lead=canAssign();
   if(!me)return `<div class="panel empty">${S.isAdmin?'Добавьте сборщиков в «Команде».':'Ваш аккаунт ещё не привязан к сотруднику — попросите администратора.'}</div>`;
   const t=todayKey();const P=periodOf(t,+S.config.startDay||5);
   const mine=S.orders.filter(o=>o.builderId===me&&WORK_ST.includes(o.stage)).sort((a,b)=>(b.urgent?1:0)-(a.urgent?1:0)||WORK_ST.indexOf(b.stage)-WORK_ST.indexOf(a.stage));
@@ -1494,12 +1496,12 @@ function buildBuilderView(){
   return `${bPicker(me,'смотреть как:')}
   <div class="bhero"><div><div class="l">В работе</div><div class="v">${mine.length}</div></div><div><div class="l">Готово сегодня</div><div class="v">${doneToday.length}</div></div><div><div class="l">За месяц</div><div class="v">${monthBuilds}</div></div></div>
   <div class="section-h"><h2 style="font-family:var(--f-display);font-size:20px">${S.isAdmin?esc(mm?.name||'')+' · активные':'Мои активные заказы'}</h2><span class="spacer"></span><span class="muted small">${mine.length?'нажмите, чтобы открыть этапы':''}</span></div>
-  ${mine.length?`<div class="bcards">${mine.map(bcard).join('')}</div>`:`<div class="panel empty">Активных заказов нет. Как только старший назначит сборку — она появится здесь.</div>`}
+  ${mine.length?`<div class="bcards">${mine.map(bcard).join('')}</div>`:`<div class="panel empty">Активных заказов нет. Возьмите заказ из очереди ниже или назначьте его кому-то.</div>`}
   <div class="section-h"><h2>Очередь</h2><span class="spacer"></span><span class="muted small num">${free.length}</span></div>
   <div class="list">${free.length?free.map(o=>`<div class="row" style="cursor:default">
      <div class="main" data-act="openOrder" data-id="${esc(o.id)}" style="cursor:pointer"><div class="t1"><span class="num">№${esc(o.num||'—')}</span>${o.urgent?'<span class="pill bad">срочно</span>':''}${shipPill(o)}</div>
      <div class="t2">${esc([o.product||kitOf(o.kitId)?.name,o.caseModel,o.city].filter(Boolean).join(' · '))}</div></div>
-     ${lead?`<button class="btn sm primary" data-act="assign" data-id="${esc(o.id)}">Назначить</button>`:''}</div>`).join(''):'<div class="empty">Очередь пуста.</div>'}</div>
+     ${S.isAdmin?'':`<button class="btn sm primary" data-act="take" data-id="${esc(o.id)}">Взять</button>`}${lead?`<button class="btn sm" data-act="assign" data-id="${esc(o.id)}">Назначить</button>`:''}</div>`).join(''):'<div class="empty">Очередь пуста.</div>'}</div>
   ${!lead&&free.length?'<div class="muted small">Заказы из очереди распределяет старший сборщик.</div>':''}
   ${lead?`<div class="section-h"><h2>Загрузка команды</h2></div><div class="chips">${load.map(([b,n])=>`<span class="chip" style="cursor:default">${esc(b.name)}${b.lead?' ★':''}<span class="n">${n}</span></span>`).join('')}</div>
    ${(()=>{const team=S.orders.filter(o=>o.builderId&&o.builderId!==me&&WORK_ST.includes(o.stage)).sort((a,b)=>nameOf(a.builderId).localeCompare(nameOf(b.builderId),'ru'));return team.length?`<div class="section-h"><h2>Сборки команды</h2><span class="spacer"></span><span class="muted small num">${team.length}</span></div><div class="list">${team.map(o=>`<div class="row" style="cursor:default"><div class="main" data-act="openOrder" data-id="${esc(o.id)}" style="cursor:pointer"><div class="t1"><span class="num">№${esc(o.num||'—')}</span><span class="pill">${esc(nameOf(o.builderId))}</span><span class="pill ${o.stage==='queue'?'warn':'accent'}">${esc(o.stage==='queue'?'ждёт старта':((BTRACK.find(([x])=>x===o.stage)||[])[1]||stage(o).t))}</span></div><div class="t2">${esc([o.product||kitOf(o.kitId)?.name,o.city].filter(Boolean).join(' · '))}</div></div><button class="btn sm" data-act="assign" data-id="${esc(o.id)}">🔁 Переназначить</button></div>`).join('')}</div>`:''})()}`:''}
@@ -1736,7 +1738,7 @@ VIEW.pay=()=>{
 VIEW.chat=()=>{
   const me=whoId();const unassigned=S.orders.filter(o=>o.stage==='queue'&&!o.builderId);
   return `<div class="section-h"><h2>Чат сборки</h2><span class="spacer"></span><span class="muted small">${realBuilders().length} сборщиков</span></div>
-  ${unassigned.length&&isLead()?`<div class="hint">Не распределено: ${unassigned.length}. ${unassigned.slice(0,3).map(o=>`<button class="btn sm" data-act="assign" data-id="${esc(o.id)}">№${esc(o.num)} → назначить</button>`).join(' ')}</div>`:''}
+  ${unassigned.length&&canAssign()?`<div class="hint">Не распределено: ${unassigned.length}. ${unassigned.slice(0,3).map(o=>`<button class="btn sm" data-act="assign" data-id="${esc(o.id)}">№${esc(o.num)} → назначить</button>`).join(' ')}</div>`:''}
   <div class="msgs" id="chatMsgs">${S.chat.length?S.chat.map(m=>msgHtml(m,me)).join(''):'<div class="empty">Сообщений пока нет. Главный сборщик пишет здесь, кому какой заказ.</div>'}</div>
   <form class="composer" data-form="chat"><input class="inp" id="chatIn" name="text" data-keep placeholder="Сообщение сборщикам…" autocomplete="off"><button class="btn primary" type="submit" aria-label="Отправить">${icon('send')}</button></form>`;
 };
@@ -1913,10 +1915,10 @@ SHEET.order=id=>{
   const done=SETUP.filter(([x])=>o.setup?.[x]).length;
   let actions='';
   if(o.stage==='queue'){
-    if(r==='builder'&&!o.builderId&&isLead())actions+=`<button class="btn primary" data-act="take" data-id="${esc(o.id)}">Взять в сборку</button>`;
+    if(r==='builder'&&!o.builderId)actions+=`<button class="btn primary" data-act="take" data-id="${esc(o.id)}">Взять в сборку</button>`;
     if(canBuild&&o.builderId)actions+=`<button class="btn primary" data-act="startBuild" data-id="${esc(o.id)}">Начал сборку</button>`;
   }
-  if(isLead()&&(WORK_ST.includes(o.stage)||['packed','shipped','delivered'].includes(o.stage)))actions+=`<button class="btn" data-act="assign" data-id="${esc(o.id)}">${o.builderId?'🔁 Переназначить':'Назначить сборщика'}</button>`;
+  if(canAssign()&&(WORK_ST.includes(o.stage)||['packed','shipped','delivered'].includes(o.stage)))actions+=`<button class="btn" data-act="assign" data-id="${esc(o.id)}">${o.builderId?'🔁 Переназначить':'Назначить сборщика'}</button>`;
   if(o.stage==='packed'&&canManage&&!o.courierCity)actions+=o.delivery==='pickup'?`<button class="btn good" data-act="pickup" data-id="${esc(o.id)}">Выдан клиенту</button>`:`<button class="btn primary" data-act="ship" data-id="${esc(o.id)}">Отправлен</button>`;
   if(o.stage==='shipped'&&canManage&&!o.courierCity)actions+=`<button class="btn good" data-act="delivered" data-id="${esc(o.id)}">Доставлен</button>`;
   if(canManage&&o.stage!=='cancelled'&&o.stage!=='delivered')actions+=`<button class="btn" data-act="editOrder" data-id="${esc(o.id)}">Изменить</button>`;
@@ -2417,7 +2419,7 @@ ACT.openInc=d=>{
   S.incUnsub=col('incidents/'+d.id+'/msgs').orderBy('at','asc').limit(300).onSnapshot(s=>{S.incMsgs=s.docs.map(x=>({id:x.id,...x.data()}));if(S.sheet?.type==='incident'){paintSheet();const el=$('#sheet');el.scrollTop=el.scrollHeight}},()=>{});
   openSheet('incident',d.id,true);
 };
-ACT.assign=d=>{if(!isLead())return toast('Назначает только старший сборщик');openSheet('assign',d.id)};
+ACT.assign=d=>{if(!canAssign())return toast('Назначать могут только сборщики');openSheet('assign',d.id)};
 ACT.ship=d=>openSheet('ship',d.id);
 ACT.cour=d=>{if(d.step==='recv')return courRecv(d.id);openSheet('cour',{id:d.id,step:d.step})};
 ACT.newStock=()=>openSheet('stockItem',null);
@@ -2502,7 +2504,7 @@ ACT.approve=d=>openSheet('approve',d.id);
 
 ACT.take=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(o.builderId&&o.builderId!==whoId())return toast('Этот заказ уже взял '+nameOf(o.builderId));
   if(await upd(doc('orders/'+o.id),{builderId:whoId(),stageAt:Date.now(),history:hist(o,'Взял в сборку')})){sysChat(`${nameOf(whoId())} взял №${o.num}`);toast('Заказ ваш')}};
-ACT.doAssign=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(!isLead())return toast('Назначает только старший сборщик');
+ACT.doAssign=async d=>{const o=S.orders.find(x=>x.id===d.id);if(!o)return;if(!canAssign())return toast('Назначать могут только сборщики');
   const from=o.builderId;if((from||'')===(d.b||''))return closeSheet();
   if(!d.b){if(!WORK_ST.includes(o.stage))return closeSheet();if(await upd(doc('orders/'+o.id),{builderId:null,stage:'queue',stageAt:Date.now(),history:hist(o,'Снят со сборщика '+nameOf(from)+' → очередь')})){sysChat(`№${o.num}: ${nameOf(from)} снят, заказ в очереди`);closeSheet();toast('Вернули в очередь')}return}
   const t=from?'Переназначен: '+nameOf(from)+' → '+nameOf(d.b):'Назначен: '+nameOf(d.b);
